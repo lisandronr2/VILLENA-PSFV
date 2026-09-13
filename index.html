@@ -728,6 +728,9 @@ function updateInfoBar(){
   bar.innerHTML=html; bar.classList.add('show');
 }
 
+// Columnas que no aportan al resumen (ya se ven en el filtrado)
+const EXCLUDE_STAT_COLS = ['anillo','fecha'];
+
 function updateStats(rows){
   const sr=document.getElementById('stats-row');
   if(!curVal||curCol<0||!rows.length){sr.classList.remove('show');return;}
@@ -737,6 +740,7 @@ function updateStats(rows){
   const numCols=[];
   h.forEach((name,i)=>{
     if(i===curCol)return;
+    if(EXCLUDE_STAT_COLS.includes((name||'').toLowerCase().trim()))return;
     const nums=rows.map(r=>parseFloat(r[i])).filter(n=>!isNaN(n));
     if(nums.length>rows.length*.3) numCols.push({name,nums,i});
   });
@@ -747,6 +751,22 @@ function updateStats(rows){
     const unit=name.toLowerCase().includes('m)')?' m':'';
     return`<div class="stat"><div class="stat-lbl">${esc(name)}</div><div class="stat-val">${fmt}<span class="stat-unit">${unit||'total'}</span></div></div>`;
   }).join('');
+
+  // Fusiones realizadas: suma de la columna de fusiones solo en las filas
+  // marcadas como realizadas (estado verde en STATUS_MAP)
+  let statusIdx=-1, fusionIdx=-1;
+  h.forEach((hd,i)=>{ if(isStatusCol(hd)) statusIdx=i; });
+  h.forEach((hd,i)=>{
+    if(i===statusIdx||i===curCol)return;
+    if(EXCLUDE_STAT_COLS.includes((hd||'').toLowerCase().trim()))return;
+    if((hd||'').toLowerCase().includes('fusion')) fusionIdx=i;
+  });
+  if(statusIdx>=0 && fusionIdx>=0){
+    const realizadas = rows
+      .filter(r=>STATUS_MAP[String(r[statusIdx]||'').toUpperCase().trim()]==='green')
+      .reduce((a,r)=>a+(parseFloat(r[fusionIdx])||0),0);
+    html += `<div class="stat"><div class="stat-lbl">Fusiones realizadas</div><div class="stat-val">${realizadas.toLocaleString('es-ES')}</div></div>`;
+  }
 
   html+=`<div class="stat"><div class="stat-lbl">Registros</div><div class="stat-val">${rows.length}</div></div>`;
   sr.innerHTML=html; sr.classList.add('show');
