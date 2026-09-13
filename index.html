@@ -166,15 +166,163 @@ tr:last-child td{border-bottom:none}
 /* ── FOOTER ── */
 .foot{font-size:10px;color:var(--t3);text-align:right;padding:4px 14px;background:var(--card);border-top:1px solid var(--border);flex-shrink:0}
 
+/* ── RESUMEN OVERLAY ── */
+.resumen-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:var(--surface);display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.22,.61,.36,1);
+}
+.resumen-overlay.show{transform:none}
+.res-hdr{
+  background:var(--blue);color:#fff;
+  padding:calc(10px + var(--safe-top)) 16px 10px;
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+  box-shadow:0 2px 10px rgba(0,0,0,.3)
+}
+.res-hdr-ico{font-size:20px;flex-shrink:0}
+.res-hdr-title{font-size:15px;font-weight:700;flex:1}
+.res-hdr-close{
+  padding:5px 13px;background:rgba(255,255,255,.15);
+  color:#fff;border:1px solid rgba(255,255,255,.3);
+  border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap
+}
+.res-hdr-close:hover{background:rgba(255,255,255,.27)}
+.res-ctrl{
+  background:var(--card);border-bottom:1px solid var(--border);
+  padding:11px 14px;flex-shrink:0;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end
+}
+.res-field{display:flex;flex-direction:column;gap:3px}
+.res-field label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.res-field input[type=date],.res-field input[type=month]{
+  height:34px;padding:0 10px;border:1px solid var(--border-s);
+  border-radius:var(--r);background:var(--surface);
+  color:var(--text);font-size:13px;min-width:150px;cursor:pointer
+}
+.res-field input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(180,83,9,.18)}
+.btn-res-search{
+  height:34px;padding:0 20px;
+  background:var(--blue);color:#fff;
+  border:none;border-radius:var(--r);
+  font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0
+}
+.btn-res-search:hover{background:var(--blue-dk)}
+.res-input-group{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.res-summary-bar{
+  padding:6px 14px;font-size:12px;font-weight:600;
+  color:var(--blue);background:var(--blue-lt);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;gap:8px;min-height:30px;flex-wrap:wrap
+}
+.res-results{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px;display:flex;flex-direction:column;gap:16px}
+.res-sheet-group{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;flex-shrink:0}
+.res-sheet-hdr{
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  padding:9px 14px;background:var(--card2);
+  border-bottom:1px solid var(--border)
+}
+.res-stats-strip{
+  display:flex;flex-wrap:wrap;gap:6px;
+  padding:8px 12px;background:var(--surface);
+  border-bottom:1px solid var(--border)
+}
+.res-stat{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:5px 11px;min-width:80px;flex-shrink:0
+}
+.res-stat-total{border-color:var(--blue);background:var(--blue-lt)}
+.res-stat-total .res-stat-val{color:var(--blue)}
+.res-stat-lbl{font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:2px;white-space:nowrap}
+.res-stat-val{font-size:16px;font-weight:700;color:var(--blue);line-height:1;font-variant-numeric:tabular-nums}
+.res-stat-unit{font-size:9px;color:var(--t4);margin-left:2px;font-weight:400}
+.res-twrap{overflow-x:auto}
+.res-twrap table{width:100%;border-collapse:collapse;font-size:12px}
+.res-twrap thead tr{background:var(--card2)}
+.res-twrap th{padding:7px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--t2);border-bottom:2px solid var(--border-s);white-space:nowrap;border-right:1px solid var(--border)}
+.res-twrap th:last-child{border-right:none}
+.res-twrap th.date-col{color:var(--blue)}
+.res-twrap th.num-col,.res-twrap td.num-col{text-align:right}
+.res-twrap td{padding:6px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.res-twrap td:last-child{border-right:none}
+.res-twrap tr:hover td{background:var(--card2)}
+.res-twrap tr:last-child td{border-bottom:none}
+.res-twrap td.date-hl{background:var(--hl);font-weight:600}
+.res-twrap tr:hover td.date-hl{background:var(--hl2)}
+.res-twrap tfoot td{font-weight:700;background:var(--blue-lt);color:var(--blue)}
+.res-grand-total{
+  background:var(--blue);color:#fff;border-radius:var(--r);
+  padding:12px 16px;font-size:16px;font-weight:700;
+  display:flex;justify-content:space-between;align-items:center
+}
+
+/* ── RESUMEN ACTION BAR ── */
+.res-action-bar{
+  display:flex;align-items:center;gap:8px;padding:7px 14px;
+  border-bottom:1px solid var(--border);flex-shrink:0;background:var(--card2)
+}
+.res-action-btn{
+  background:var(--blue);color:#fff;border:none;border-radius:var(--r);
+  padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:5px;line-height:1
+}
+.res-action-btn:hover{background:var(--blue-dk)}
+.res-action-btn--excel{background:#1b7a4a}
+.res-action-btn--excel:hover{background:#155c38}
+
 /* ── PRINT ── */
 @media print{
-  .hdr{background:var(--blue)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .ctrl-bar,.info-bar,.hacts,.btn-rst,#b-update,#b-offline,#b-error,.toast,.foot{display:none!important}
-  html,body{height:auto;overflow:visible}
-  .rwrap{overflow:visible}
-  .twrap{overflow:visible}
-  thead{position:static}
-  tr{page-break-inside:avoid}
+  /* Impresión de la tabla principal — ocultar el overlay de resumen si no está activo */
+  body:not(.print-resumen) #resumen-overlay{
+    display:none!important;visibility:hidden!important;
+    position:absolute!important;top:-99999px!important;transform:none!important;
+  }
+  body:not(.print-resumen) .hdr{background:var(--blue)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body:not(.print-resumen) .ctrl-bar,body:not(.print-resumen) .info-bar,body:not(.print-resumen) .hacts,
+  body:not(.print-resumen) .btn-rst,body:not(.print-resumen) #b-update,body:not(.print-resumen) #b-offline,
+  body:not(.print-resumen) #b-error,body:not(.print-resumen) .toast,body:not(.print-resumen) .foot{display:none!important}
+  body:not(.print-resumen) .rwrap{overflow:visible}
+  body:not(.print-resumen) .twrap{overflow:visible}
+  thead{position:static!important}
+  body:not(.print-resumen) tr{page-break-inside:avoid}
+
+  /* Impresión del resumen (producción o valorización) */
+  body.print-resumen .hdr,
+  body.print-resumen .ctrl-bar,
+  body.print-resumen .info-bar,
+  body.print-resumen .stats-row,
+  body.print-resumen .rwrap,
+  body.print-resumen .foot,
+  body.print-resumen .toast,
+  body.print-resumen .banner,
+  body.print-resumen #b-error,
+  body.print-resumen .res-hdr-close,
+  body.print-resumen .res-ctrl,
+  body.print-resumen .res-action-bar{display:none!important}
+  body.print-resumen #resumen-overlay{
+    display:block!important;
+    position:static!important;transform:none!important;
+    overflow:visible!important;height:auto!important;z-index:auto!important
+  }
+  body.print-resumen .res-results{
+    display:block!important;
+    overflow:visible!important;max-height:none!important;
+    height:auto!important;padding:8px!important
+  }
+  body.print-resumen .res-twrap{overflow:visible!important}
+  body.print-resumen .res-twrap td{white-space:normal!important;max-width:none!important}
+  /* No forzamos que TODO el grupo evite el salto de página: si el grupo es más
+     alto que una página, esa regla lo empuja entero a la página siguiente y
+     deja la anterior casi en blanco. Solo protegemos cabeceras y filas. */
+  body.print-resumen .res-sheet-group{margin-bottom:16px}
+  body.print-resumen .res-sheet-hdr,
+  body.print-resumen .res-stats-strip{
+    break-inside:avoid;page-break-inside:avoid;
+    break-after:avoid;page-break-after:avoid
+  }
+  body.print-resumen .res-twrap table{break-before:avoid;page-break-before:avoid}
+  body.print-resumen .res-twrap thead{display:table-header-group}
+  body.print-resumen .res-twrap tr{break-inside:avoid;page-break-inside:avoid}
+  html,body{height:auto!important;overflow:visible!important}
 }
 
 /* ── RESPONSIVE ── */
@@ -219,7 +367,9 @@ tr:last-child td{border-bottom:none}
   <div class="hacts">
     <div class="sbadge"><div class="sdot" id="sdot"></div><span id="slbl">Iniciando…</span></div>
     <button class="btn-h" id="btn-sync" onclick="syncNow(true)" title="Sincronizar ahora">↻ Sync</button>
-    <button class="btn-h" onclick="window.print()" title="Imprimir / Exportar PDF">🖨</button>
+    <button class="btn-h" onclick="printMain()" title="Imprimir / Exportar PDF">🖨 PDF</button>
+    <button class="btn-h" onclick="downloadExcelMain()" title="Exportar a Excel">📥 Excel</button>
+    <button class="btn-h" onclick="openResumen()" title="Resumen de producción / valorización">📅 Resumen</button>
     <button class="btn-h" id="btn-theme" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
   </div>
 </div>
@@ -260,6 +410,80 @@ tr:last-child td{border-bottom:none}
 <div class="foot" id="foot"></div>
 <div class="toast" id="toast"></div>
 
+<!-- ── RESUMEN OVERLAY ── -->
+<div class="resumen-overlay" id="resumen-overlay">
+  <div class="res-hdr">
+    <div class="res-hdr-ico">📅</div>
+    <div class="res-hdr-title">RESUMEN DE PRODUCCIÓN</div>
+    <button class="res-hdr-close" onclick="closeResumen()">✕ Cerrar</button>
+  </div>
+  <div class="res-ctrl">
+    <div class="ctrl">
+      <label>Hoja</label>
+      <select id="res-hoja" onchange="refreshResEstado()">
+        <option value="">Todas las hojas</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Tipo de resumen</label>
+      <select id="res-modo">
+        <option value="produccion">Producción</option>
+        <option value="valorizacion">Valorización (€)</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Buscar por</label>
+      <select id="res-tipo" onchange="toggleResTipo()">
+        <option value="fecha">Fecha exacta</option>
+        <option value="mes">Mes completo</option>
+        <option value="rango">Rango de fechas</option>
+      </select>
+    </div>
+    <div id="rg-fecha" class="res-input-group">
+      <div class="res-field">
+        <label>Fecha</label>
+        <input type="date" id="ri-fecha">
+      </div>
+    </div>
+    <div id="rg-mes" class="res-input-group" style="display:none">
+      <div class="res-field">
+        <label>Mes y año</label>
+        <input type="month" id="ri-mes">
+      </div>
+    </div>
+    <div id="rg-rango" class="res-input-group" style="display:none">
+      <div class="res-field">
+        <label>Desde</label>
+        <input type="date" id="ri-from">
+      </div>
+      <div class="res-field">
+        <label>Hasta</label>
+        <input type="date" id="ri-to">
+      </div>
+    </div>
+    <div id="rg-estado" class="ctrl" style="display:none">
+      <label>Estado</label>
+      <select id="res-estado">
+        <option value="">Todos los estados</option>
+      </select>
+    </div>
+    <button class="btn-res-search" onclick="runResumen()">🔍 Buscar</button>
+  </div>
+  <div class="res-summary-bar" id="res-summary"></div>
+  <div class="res-action-bar" id="res-action-bar" style="display:none">
+    <button class="res-action-btn" onclick="printResumen()">🖨 Imprimir / PDF</button>
+    <button class="res-action-btn res-action-btn--excel" onclick="downloadExcel()">📥 Excel</button>
+  </div>
+  <div class="res-results" id="res-results">
+    <div class="state">
+      <div class="ico">📅</div>
+      <h3>Buscar por fecha</h3>
+      <p>Elige el <strong>tipo de resumen</strong> (producción o valorización en €), el periodo y pulsa <strong>Buscar</strong> para ver todos los trabajos realizados.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
 <script>
 // ═══════════════════════════════════════════════
 // CONFIG
@@ -888,6 +1112,502 @@ async function init(){
   resetSyncTimer();
 }
 init().catch(console.error);
+
+// ═══════════════════════════════════════════════
+// PRECIOS DE PRODUCCIÓN (€)
+// ═══════════════════════════════════════════════
+const PRICE_LIST = {
+  fusionado:   {label:'Fusionado',                    price:10},
+  montaje:     {label:'Montaje CT (armario campo)',   price:50},
+  rackIt:      {label:'Instalación Rack IT',          price:50},
+  preparacion: {label:'Preparación',                  price:30},
+  ensayo:      {label:'Ensayo',                       price:6},
+  armarioRack: {label:'Instalación Armario Rack',     price:180},
+  prepUtp:     {label:'Preparación UTP',               price:25},
+};
+
+// Palabras clave para localizar cada concepto dentro de un texto libre
+// (encabezado de columna o valor de celda). Se buscan en minúsculas y sin
+// acentos, y basta con que el texto CONTENGA la palabra clave (no hace
+// falta que coincida exactamente) — ej. "ensayos" también encuentra "ensayo".
+// El orden importa: las más específicas van primero para no confundir
+// "Preparación UTP" con "Preparación" a secas.
+const PRICE_KEYWORDS = [
+  {kw:'instalacion armario rack', item:'armarioRack'},
+  {kw:'instalacion rack',         item:'rackIt'},
+  {kw:'preparacion utp',          item:'prepUtp'},
+  {kw:'montaje',                  item:'montaje'},
+  {kw:'preparacion',              item:'preparacion'},
+  {kw:'fusion',                   item:'fusionado'},
+  {kw:'ensayo',                   item:'ensayo'},
+];
+
+function normalizeTxt(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+function matchPriceKeyword(text){
+  const n = normalizeTxt(text);
+  if(!n) return null;
+  for(const {kw,item} of PRICE_KEYWORDS){ if(n.includes(kw)) return item; }
+  return null;
+}
+
+// Config de valorización por hoja: qué encabezados leer y cómo calcular el
+// importe. Se resuelven por NOMBRE de columna (no por posición), así que
+// siguen funcionando si el sheet cambia el orden de las columnas.
+const RESUMEN_SHEETS = {
+  'MONTAJE CTS': {
+    calc:'montajeCT',
+    hEstado:'ESTADO', hFusiones:'CANTIDAD FUSIONES',
+  },
+  'FUSIONADO CTS': {
+    calc:'fusionadoCT',
+    hEstado:'FUSIONADO', hPreparacion:'PREPARACION', hFusiones:'FUSIONES',
+  },
+  'FUSIONADO GONVARRI': {
+    calc:'elemento',
+    hEstado:'ESTADO', hElemento:'ELEMENTO',
+  },
+};
+
+function colIdx(headers, name){ return name ? headers.indexOf(name) : -1; }
+
+// Sin columna de estado en la hoja → no se filtra (se cuenta todo lo que
+// cayó en el periodo). Con columna de estado → solo cuenta lo REALIZADO
+// (verde en STATUS_MAP), igual que el chip "Fusiones realizadas".
+function isRealizadoRow(row, idx){
+  if(idx<0) return true;
+  return STATUS_MAP[String(row[idx]||'').toUpperCase().trim()]==='green';
+}
+
+function calcMontajeCT(cfg, headers, rows){
+  const cEstado=colIdx(headers,cfg.hEstado), cFus=colIdx(headers,cfg.hFusiones);
+  const ok = rows.filter(r=>isRealizadoRow(r,cEstado));
+  const registros = ok.length;
+  const fus = cFus>=0 ? ok.reduce((s,r)=>s+(parseFloat(r[cFus])||0),0) : 0;
+  const out=[];
+  if(registros) out.push({label:PRICE_LIST.montaje.label, detail:`${registros} × ${PRICE_LIST.montaje.price}€`, total:registros*PRICE_LIST.montaje.price});
+  if(fus)       out.push({label:PRICE_LIST.fusionado.label, detail:`${fus} × ${PRICE_LIST.fusionado.price}€`, total:fus*PRICE_LIST.fusionado.price});
+  return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
+}
+
+function calcFusionadoCT(cfg, headers, rows){
+  const cEstado=colIdx(headers,cfg.hEstado), cPrep=colIdx(headers,cfg.hPreparacion), cFus=colIdx(headers,cfg.hFusiones);
+  const ok = rows.filter(r=>isRealizadoRow(r,cEstado));
+  const fus  = cFus>=0  ? ok.reduce((s,r)=>s+(parseFloat(r[cFus])||0),0)  : 0;
+  const prep = cPrep>=0 ? ok.reduce((s,r)=>s+(parseFloat(r[cPrep])||0),0) : 0;
+  const out=[];
+  if(fus)  out.push({label:PRICE_LIST.fusionado.label,   detail:`${fus} × ${PRICE_LIST.fusionado.price}€`,   total:fus*PRICE_LIST.fusionado.price});
+  if(prep) out.push({label:PRICE_LIST.preparacion.label, detail:`${prep} × ${PRICE_LIST.preparacion.price}€`, total:prep*PRICE_LIST.preparacion.price});
+  return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
+}
+
+function calcElemento(cfg, headers, rows){
+  const cEstado=colIdx(headers,cfg.hEstado), cElemento=colIdx(headers,cfg.hElemento);
+  const ok = rows.filter(r=>isRealizadoRow(r,cEstado));
+  const counts={};
+  ok.forEach(r=>{
+    const item = cElemento>=0 ? matchPriceKeyword(r[cElemento]) : null;
+    if(item) counts[item]=(counts[item]||0)+1;
+  });
+  const out = Object.entries(counts).map(([item,n])=>({
+    label:PRICE_LIST[item].label, detail:`${n} × ${PRICE_LIST[item].price}€`, total:n*PRICE_LIST[item].price
+  }));
+  return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
+}
+
+function computeResumenSheetEuros(sheetName, headers, rows){
+  const cfg = RESUMEN_SHEETS[sheetName];
+  if(!cfg) return {rows:[], totalEuros:0};
+  if(cfg.calc==='montajeCT')   return calcMontajeCT(cfg, headers, rows);
+  if(cfg.calc==='fusionadoCT') return calcFusionadoCT(cfg, headers, rows);
+  if(cfg.calc==='elemento')    return calcElemento(cfg, headers, rows);
+  return {rows:[], totalEuros:0};
+}
+
+function fmtEuro(n){ return (Math.round(n*100)/100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+
+// ═══════════════════════════════════════════════
+// RESUMEN POR FECHA
+// ═══════════════════════════════════════════════
+function openResumen(){
+  const sel = document.getElementById('res-hoja');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Todas las hojas</option>';
+  Object.keys(allData).sort((a,b)=>a.localeCompare(b,'es')).forEach(name=>{
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+  if(prev) sel.value = prev;
+  refreshResEstado();
+  document.getElementById('resumen-overlay').classList.add('show');
+}
+function closeResumen(){
+  document.getElementById('resumen-overlay').classList.remove('show');
+}
+
+function detectEstadoColIdx(headers){
+  if(!headers) return -1;
+  return headers.findIndex(h=>isStatusCol(h));
+}
+
+function refreshResEstado(){
+  const hojaFiltro = document.getElementById('res-hoja').value;
+  const esel = document.getElementById('res-estado');
+  const wrap = document.getElementById('rg-estado');
+
+  const vals = new Set();
+  let hasEstado = false;
+  for(const [name, data] of Object.entries(allData)){
+    if(hojaFiltro && name !== hojaFiltro) continue;
+    if(!data?.h?.length) continue;
+    const idx = detectEstadoColIdx(data.h);
+    if(idx < 0) continue;
+    hasEstado = true;
+    (data.r||[]).forEach(row=>{ vals.add((row[idx]||'').trim()); });
+  }
+
+  if(!hasEstado){ wrap.style.display = 'none'; return; }
+
+  const prevVal = esel.value;
+  esel.innerHTML = '<option value="__ALL__">Todos los estados</option>';
+  const sorted = [...vals].filter(v=>v!=='').sort((a,b)=>a.localeCompare(b,'es'));
+  sorted.forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    esel.appendChild(o);
+  });
+  if(vals.has('')){
+    const o = document.createElement('option');
+    o.value = '__EMPTY__'; o.textContent = '(Vacío — pendiente)';
+    esel.appendChild(o);
+  }
+  if([...esel.options].some(o=>o.value===prevVal)) esel.value = prevVal;
+  else esel.value = '__ALL__';
+  wrap.style.display = 'flex';
+}
+
+function toggleResTipo(){
+  const tipo = document.getElementById('res-tipo').value;
+  document.getElementById('rg-fecha').style.display  = tipo==='fecha'  ? 'flex' : 'none';
+  document.getElementById('rg-mes').style.display    = tipo==='mes'    ? 'flex' : 'none';
+  document.getElementById('rg-rango').style.display  = tipo==='rango'  ? 'flex' : 'none';
+}
+
+// Parsea string de fecha en varios formatos a Date, o null si no reconoce
+function resParseDate(str){
+  if(!str) return null;
+  const s = String(str).trim();
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+  m = s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if(m) return new Date(2000 + +m[3], +m[2]-1, +m[1]);
+  return null;
+}
+function resDateMs(d){ return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+// Detecta qué columnas contienen fechas en una hoja
+function detectDateCols(headers, rows){
+  const cols = [];
+  headers.forEach((hdr, i)=>{
+    const lc = (hdr||'').toLowerCase().trim();
+    if(lc.includes('fecha') || lc === 'date' || lc === 'día' || lc === 'dia' || lc.startsWith('fec')){
+      cols.push(i); return;
+    }
+    const sample = rows.slice(0, 15).map(r=>r[i]||'').filter(v=>v!=='');
+    if(sample.length === 0) return;
+    const dateHits = sample.filter(v=>resParseDate(v) !== null).length;
+    if(dateHits >= Math.min(3, sample.length) && dateHits / sample.length >= 0.5) cols.push(i);
+  });
+  return [...new Set(cols)];
+}
+
+function runResumen(){
+  const modo = document.getElementById('res-modo').value;
+  const tipo = document.getElementById('res-tipo').value;
+  let fromMs, toMs, label;
+
+  const esPendiente = (document.getElementById('res-estado').value === '__EMPTY__');
+
+  if(esPendiente){
+    label = 'Pendiente (sin ejecutar)';
+  } else if(tipo === 'fecha'){
+    const val = document.getElementById('ri-fecha').value;
+    if(!val){ toast('Selecciona una fecha','warn'); return; }
+    const d = new Date(val + 'T00:00:00');
+    fromMs = toMs = resDateMs(d);
+    label = d.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+  } else if(tipo === 'mes'){
+    const val = document.getElementById('ri-mes').value;
+    if(!val){ toast('Selecciona un mes','warn'); return; }
+    const [y,mo] = val.split('-').map(Number);
+    fromMs = Date.UTC(y, mo-1, 1);
+    toMs   = Date.UTC(y, mo,   0);
+    label  = new Date(y, mo-1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  } else {
+    const f = document.getElementById('ri-from').value;
+    const t = document.getElementById('ri-to').value;
+    if(!f||!t){ toast('Selecciona el rango de fechas','warn'); return; }
+    fromMs = resDateMs(new Date(f + 'T00:00:00'));
+    toMs   = resDateMs(new Date(t + 'T00:00:00'));
+    if(fromMs > toMs){ toast('La fecha inicial debe ser anterior a la final','warn'); return; }
+    const fmt = dt => new Date(dt + 'T00:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    label = `${fmt(f)} → ${fmt(t)}`;
+  }
+
+  const estadoFilter = document.getElementById('res-estado').value || '__ALL__';
+  const hojaFiltro = document.getElementById('res-hoja').value;
+  const results = [];
+  for(const [sheetName, data] of Object.entries(allData)){
+    if(hojaFiltro && sheetName !== hojaFiltro) continue;
+    if(!data?.h?.length || !data?.r?.length) continue;
+    const dateCols = detectDateCols(data.h, data.r);
+    if(!dateCols.length) continue;
+
+    const estadoIdx = detectEstadoColIdx(data.h);
+    let matched;
+
+    if(estadoFilter === '__EMPTY__'){
+      const datedEstados = new Set();
+      if(estadoIdx >= 0){
+        data.r.forEach(row=>{
+          const hasDate = dateCols.some(ci=>resParseDate(row[ci]) !== null);
+          if(hasDate){
+            const v = (row[estadoIdx]||'').trim().toUpperCase();
+            if(v) datedEstados.add(v);
+          }
+        });
+      }
+      matched = data.r.filter(row=>{
+        const estadoVal = estadoIdx >= 0 ? (row[estadoIdx]||'').trim() : '';
+        const hasDate = dateCols.some(ci=>resParseDate(row[ci]) !== null);
+        if(hasDate) return false;
+        if(estadoVal === '') return true;
+        return !datedEstados.has(estadoVal.toUpperCase());
+      });
+    } else {
+      matched = data.r.filter(row=>{
+        const inDate = dateCols.some(ci=>{
+          const d = resParseDate(row[ci]);
+          if(!d) return false;
+          const ms = resDateMs(d);
+          return ms >= fromMs && ms <= toMs;
+        });
+        if(!inDate) return false;
+        if(estadoFilter !== '__ALL__' && estadoIdx >= 0){
+          const val = (row[estadoIdx]||'').trim();
+          return val.toUpperCase() === estadoFilter.toUpperCase();
+        }
+        return true;
+      });
+    }
+
+    if(matched.length) results.push({sheet:sheetName, headers:data.h, rows:matched, dateCols});
+  }
+
+  const estadoLabel = estadoFilter === '__ALL__' ? '' :
+    estadoFilter === '__EMPTY__' ? ' · Pendiente (sin ejecutar)' : ` · Estado: ${estadoFilter}`;
+
+  if(modo === 'valorizacion') renderValorizacionResults(results, label + estadoLabel);
+  else renderResumenResults(results, label + estadoLabel);
+}
+
+// Columnas que no aportan al resumen de producción (identificadores)
+const RES_STATS_EXCLUDE = new Set(['anillo','fecha']);
+
+function buildResStats(headers, rows){
+  const cntCols=[], numCols=[];
+  headers.forEach((name,i)=>{
+    const lc=(name||'').toLowerCase().trim();
+    if(RES_STATS_EXCLUDE.has(lc)) return;
+    if(isStatusCol(name)) return;
+    const vals = rows.map(r=>r[i]??'').filter(v=>v!=='');
+    const nums = vals.map(v=>parseFloat(v)).filter((n,idx)=>!isNaN(n) && !/\//.test(vals[idx]));
+    if(nums.length > rows.length*0.3) numCols.push({name,nums});
+    else if(vals.length){
+      const uniq = new Set(vals).size;
+      if(uniq>1) cntCols.push({name,uniq});
+    }
+  });
+  const chips=[];
+  numCols.slice(0,4).forEach(({name,nums})=>{
+    const s = nums.reduce((a,b)=>a+b,0);
+    const fmt = s%1===0 ? s.toLocaleString('es-ES') : s.toFixed(1);
+    chips.push(`<div class="res-stat"><div class="res-stat-lbl">${esc(name)}</div><div class="res-stat-val">${fmt}<span class="res-stat-unit">total</span></div></div>`);
+  });
+  chips.push(`<div class="res-stat res-stat-total"><div class="res-stat-lbl">Registros</div><div class="res-stat-val">${rows.length}</div></div>`);
+  return chips.join('');
+}
+
+let lastResults = null; // {mode, label, sheets:[{sheet,headers,sortedRows,dateCols}]}
+
+function renderResumenResults(results, label){
+  const sumEl     = document.getElementById('res-summary');
+  const cont      = document.getElementById('res-results');
+  const actionBar = document.getElementById('res-action-bar');
+
+  if(!results.length){
+    lastResults = null;
+    actionBar.style.display = 'none';
+    sumEl.innerHTML = '';
+    cont.innerHTML  = `<div class="state"><div class="ico">🔍</div><h3>Sin resultados</h3><p>No se encontraron registros para <strong>${esc(label)}</strong>.<br>Verifica que las hojas tengan columnas de fecha con datos.</p></div>`;
+    return;
+  }
+
+  const processedSheets = results.map(({sheet, headers, rows, dateCols})=>{
+    const sortedRows = [...rows].sort((a,b)=>{
+      for(const ci of dateCols){
+        const da = resParseDate(a[ci]), db = resParseDate(b[ci]);
+        if(da && db) return resDateMs(da) - resDateMs(db);
+      }
+      return 0;
+    });
+    return {sheet, headers, sortedRows, dateCols};
+  });
+
+  lastResults = {mode:'produccion', label, sheets: processedSheets};
+  actionBar.style.display = '';
+
+  const totalRows = processedSheets.reduce((s,r)=>s + r.sortedRows.length, 0);
+  sumEl.innerHTML = `<span class="itag">${esc(label)}</span> &nbsp;${processedSheets.length} hoja${processedSheets.length>1?'s':''} &nbsp;·&nbsp; ${totalRows} registro${totalRows>1?'s':''}`;
+
+  const sheetsHtml = processedSheets.map(({sheet, headers, sortedRows, dateCols})=>{
+    let tbl = `<div class="res-sheet-group">`;
+    tbl += `<div class="res-sheet-hdr"><span class="itag">${esc(sheet)}</span><span class="rcount">${sortedRows.length} registro${sortedRows.length>1?'s':''}</span></div>`;
+    tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows)}</div>`;
+    tbl += `<div class="res-twrap"><table><thead><tr>`;
+    headers.forEach((col,i)=>{ tbl += `<th${dateCols.includes(i)?' class="date-col"':''}>${esc(col||'')}</th>`; });
+    tbl += `</tr></thead><tbody>`;
+    sortedRows.forEach(row=>{
+      tbl += '<tr>';
+      headers.forEach((hdr,i)=>{
+        const v = row[i] ?? '';
+        const isDate = dateCols.includes(i);
+        const isSt   = isStatusCol(hdr);
+        const content = v !== '' ? (isSt ? statusPill(v) : esc(String(v))) : '<span class="ec">—</span>';
+        tbl += `<td${isDate?' class="date-hl"':''}>${content}</td>`;
+      });
+      tbl += '</tr>';
+    });
+    tbl += `</tbody></table></div></div>`;
+    return tbl;
+  }).join('');
+
+  cont.innerHTML = sheetsHtml;
+}
+
+function renderValorizacionResults(results, label){
+  const sumEl     = document.getElementById('res-summary');
+  const cont      = document.getElementById('res-results');
+  const actionBar = document.getElementById('res-action-bar');
+
+  const priced = results.map(({sheet, headers, rows})=>({
+    sheet, headers, rows, ...computeResumenSheetEuros(sheet, headers, rows)
+  })).filter(r=>r.rows.length);
+
+  if(!priced.length){
+    lastResults = null;
+    actionBar.style.display = 'none';
+    sumEl.innerHTML = '';
+    cont.innerHTML  = `<div class="state"><div class="ico">💶</div><h3>Sin producción valorizable</h3><p>No se encontraron conceptos con precio para <strong>${esc(label)}</strong>.</p></div>`;
+    return;
+  }
+
+  lastResults = {mode:'valorizacion', label, sheets: priced};
+  actionBar.style.display = '';
+
+  const grandTotal = priced.reduce((s,r)=>s+r.totalEuros,0);
+  sumEl.innerHTML = `<span class="itag">${esc(label)}</span> &nbsp;${priced.length} hoja${priced.length>1?'s':''} valorizada${priced.length>1?'s':''}`;
+
+  const blocksHtml = priced.map(({sheet, rows, totalEuros})=>{
+    let tbl = `<div class="res-sheet-group">`;
+    tbl += `<div class="res-sheet-hdr"><span class="itag">${esc(sheet)}</span><span class="rcount">${fmtEuro(totalEuros)}</span></div>`;
+    tbl += `<div class="res-twrap"><table><thead><tr><th>Concepto</th><th>Detalle</th><th class="num-col">Importe</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      tbl += `<tr><td>${esc(r.label)}</td><td>${esc(r.detail||'')}</td><td class="num-col">${fmtEuro(r.total)}</td></tr>`;
+    });
+    tbl += `</tbody><tfoot><tr><td colspan="2">Subtotal ${esc(sheet)}</td><td class="num-col">${fmtEuro(totalEuros)}</td></tr></tfoot></table></div></div>`;
+    return tbl;
+  }).join('');
+
+  cont.innerHTML = blocksHtml + `<div class="res-grand-total"><span>TOTAL GENERAL</span><span>${fmtEuro(grandTotal)}</span></div>`;
+}
+
+function printMain(){
+  document.getElementById('resumen-overlay').classList.remove('show');
+  window.print();
+}
+function printResumen(){
+  if(!lastResults) return;
+  document.body.classList.add('print-resumen');
+  window.print();
+}
+window.addEventListener('afterprint', function(){
+  document.body.classList.remove('print-resumen');
+});
+
+// Nombres de hoja de Excel: máx 31 caracteres, sin \ / ? * [ ] : y sin repetirse.
+function xlsxSafeSheetName(name, used){
+  let clean = String(name||'Hoja').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,31) || 'Hoja';
+  let final = clean, n = 2;
+  while(used.has(final)){
+    const suffix = ` (${n++})`;
+    final = clean.slice(0, 31-suffix.length) + suffix;
+  }
+  used.add(final);
+  return final;
+}
+
+// Genera un .xlsx real (OOXML) vía SheetJS: máxima compatibilidad con Excel,
+// sin advertencias de "archivo protegido/dañado" como pasaba con XML manual.
+function downloadExcelSheets(sheets, filenamePrefix){
+  if(!sheets || !sheets.length) return;
+  if(typeof XLSX === 'undefined'){
+    toast('❌ Generador de Excel no disponible. Revisa tu conexión e intenta de nuevo.', 'err');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const usedNames = new Set();
+  sheets.forEach(({sheet, aoa})=>{
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, xlsxSafeSheetName(sheet, usedNames));
+  });
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `${filenamePrefix}_${date}.xlsx`);
+}
+
+function downloadExcel(){
+  if(!lastResults || !lastResults.sheets.length) return;
+  if(lastResults.mode === 'valorizacion'){
+    const sheets = lastResults.sheets.map(({sheet, rows, totalEuros})=>({
+      sheet,
+      aoa: [
+        ['Concepto','Detalle','Importe (€)'],
+        ...rows.map(r=>[r.label, r.detail||'', r.total]),
+        ['Subtotal', '', totalEuros],
+      ]
+    }));
+    downloadExcelSheets(sheets, 'valorizacion');
+  } else {
+    const sheets = lastResults.sheets.map(({sheet, headers, sortedRows})=>({
+      sheet,
+      aoa: [headers.map(h=>h||''), ...sortedRows.map(row=>headers.map((_,i)=>row[i]??''))]
+    }));
+    downloadExcelSheets(sheets, 'resumen');
+  }
+}
+
+// Excel de la tabla principal: exporta exactamente lo que está desplegado
+// (la hoja actual, con el filtro y el orden aplicados en pantalla)
+function downloadExcelMain(){
+  if(!curSheet || !allData[curSheet]){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
+  const headers = allData[curSheet].h;
+  const rows = filtered();
+  downloadExcelSheets([{sheet: curSheet, aoa:[headers.map(h=>h||''), ...rows.map(row=>headers.map((_,i)=>row[i]??''))]}], 'villena_psfv');
+}
 </script>
 </body>
 </html>
