@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#B45309">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VILLENA">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+<title>VILLENA PSFV</title>
+<style>
+/* ── TOKENS ── */
+:root {
+  --blue:#B45309; --blue-dk:#8a3f07; --blue-lt:#FFF7ED; --blue-mid:#C2660F;
+  --surface:#f4f4f0; --card:#fff; --card2:#fafaf7;
+  --border:#e0ddd6; --border-s:#ccc;
+  --text:#1a1a18; --t2:#555; --t3:#888; --t4:#bbb;
+  --green:#1b7a4a; --green-bg:#ecfdf5; --green-bd:#a7f3d0;
+  --amber:#b45309; --amber-bg:#fffbeb; --amber-bd:#fde68a;
+  --red:#b91c1c; --red-bg:#fef2f2; --red-bd:#fecaca;
+  --violet:#6d28d9; --violet-bg:#f5f3ff; --violet-bd:#ddd6fe;
+  --hl:#FFF8E1; --hl2:#FFF3CD;
+  --r:8px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+  --shadow:0 2px 8px rgba(0,0,0,.12);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --surface:#12151e; --card:#1c2033; --card2:#222640;
+    --border:#2a2f47; --border-s:#3a4060;
+    --text:#e8e9f0; --t2:#9fa3be; --t3:#666a88; --t4:#383d5a;
+    --blue-lt:#2a1e0f;
+    --hl:#2a2200; --hl2:#332800;
+    --green-bg:#0d2e1f; --amber-bg:#2a1e00; --red-bg:#2a0d0d; --violet-bg:#1e1535;
+    --shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --surface:#12151e; --card:#1c2033; --card2:#222640;
+  --border:#2a2f47; --border-s:#3a4060;
+  --text:#e8e9f0; --t2:#9fa3be; --t3:#666a88; --t4:#383d5a;
+  --blue-lt:#2a1e0f;
+  --hl:#2a2200; --hl2:#332800;
+  --green-bg:#0d2e1f; --amber-bg:#2a1e00; --red-bg:#2a0d0d; --violet-bg:#1e1535;
+  --shadow:0 2px 8px rgba(0,0,0,.4);
+}
+:root[data-theme="light"]{
+  --surface:#f4f4f0; --card:#fff; --card2:#fafaf7;
+  --border:#e0ddd6; --border-s:#ccc;
+  --text:#1a1a18; --t2:#555; --t3:#888; --t4:#bbb;
+  --blue-lt:#FFF7ED;
+  --hl:#FFF8E1; --hl2:#FFF3CD;
+  --green-bg:#ecfdf5; --amber-bg:#fffbeb; --red-bg:#fef2f2; --violet-bg:#f5f3ff;
+  --shadow:0 2px 8px rgba(0,0,0,.12);
+}
+
+/* ── RESET ── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--surface);color:var(--text);font-size:13px;display:flex;flex-direction:column;transition:background .2s,color .2s}
+
+/* ── BANNERS ── */
+.banner{padding:8px 16px;display:none;align-items:center;gap:10px;font-size:12px;flex-shrink:0}
+.banner.show{display:flex}
+#b-update{background:#1b4332;color:#fff;justify-content:space-between}
+#b-offline{background:#4c1d95;color:#fff}
+#b-error{background:#7f1d1d;color:#fff}
+.btn-bn{padding:4px 12px;border:none;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-bn.upd{background:#4ade80;color:#1a1a18}
+.btn-bn.err{background:#fca5a5;color:#7f1d1d}
+
+/* ── HEADER ── */
+.hdr{background:var(--blue);color:#fff;padding:calc(10px + var(--safe-top)) 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-size:16px;font-weight:700;letter-spacing:.2px}
+.logo-sub{font-size:10px;opacity:.7;margin-top:1px}
+.hacts{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btn-h{padding:5px 11px;background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s}
+.btn-h:hover{background:rgba(255,255,255,.23)}
+.btn-h:disabled{opacity:.35;cursor:not-allowed}
+.sbadge{display:inline-flex;align-items:center;gap:5px;font-size:11px;opacity:.85;white-space:nowrap}
+.sdot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s}
+.sdot.spin{background:#facc15;animation:pulse 1s infinite}
+.sdot.err{background:#f87171}
+.sdot.off{background:#94a3b8}
+
+/* ── CONTROLS ── */
+.ctrl-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 14px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.ctrl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ctrl label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.ctrl select{
+  height:34px;padding:0 28px 0 10px;border:1px solid var(--border-s);border-radius:var(--r);
+  background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color:var(--text);font-size:13px;min-width:140px;max-width:260px;cursor:pointer;appearance:none
+}
+.ctrl select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(180,83,9,.18)}
+.ctrl select:disabled{opacity:.45;cursor:not-allowed}
+.btn-rst{height:34px;padding:0 12px;border:1px solid var(--border-s);border-radius:var(--r);background:transparent;color:var(--t3);font-size:12px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.btn-rst:hover{background:var(--surface);color:var(--text)}
+
+/* ── INFO BAR ── */
+.info-bar{background:var(--blue-lt);border-left:3px solid var(--blue);padding:7px 14px;font-size:12px;color:var(--blue);display:none;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.info-bar.show{display:flex}
+.itag{background:var(--blue);color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600}
+
+/* ── STATS ── */
+.stats-row{display:none;gap:8px;padding:10px 14px;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;overflow-x:auto}
+.stats-row.show{display:flex}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 13px;min-width:100px;flex-shrink:0}
+.stat-lbl{font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:3px;white-space:nowrap}
+.stat-val{font-size:19px;font-weight:700;color:var(--blue);line-height:1;font-variant-numeric:tabular-nums}
+.stat-unit{font-size:10px;color:var(--t4);margin-left:2px;font-weight:400}
+
+/* ── RESULTS AREA ── */
+.rwrap{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.rhead{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--border);background:var(--card2)}
+.rtitle{font-size:13px;font-weight:700;color:var(--text)}
+.rcount{font-size:11px;color:var(--t3);background:var(--surface);border:1px solid var(--border);padding:2px 10px;border-radius:99px}
+.twrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead{position:sticky;top:0;z-index:5}
+thead tr{background:var(--card2)}
+th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--t2);border-bottom:2px solid var(--border-s);white-space:nowrap;cursor:pointer;user-select:none;border-right:1px solid var(--border)}
+th:last-child{border-right:none}
+th:hover{background:var(--surface)}
+th .si{font-size:10px;color:var(--t4);margin-left:3px}
+th.sorted{color:var(--blue)}
+th.chs{background:var(--hl)}
+td{padding:7px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+td:last-child{border-right:none}
+tr:hover td{background:var(--card2)}
+td.hl{background:var(--hl);font-weight:600}
+tr:hover td.hl{background:var(--hl2)}
+tr:last-child td{border-bottom:none}
+.ec{color:var(--t4);font-style:italic}
+
+/* ── STATUS PILLS ── */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap}
+.pill-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.pill-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+.pill-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.pill-violet{background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd)}
+.pill-gray{background:var(--surface);color:var(--t3);border:1px solid var(--border)}
+
+/* ── EMPTY STATES ── */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 20px;text-align:center;color:var(--t3);flex:1}
+.state .ico{font-size:40px;opacity:.35}
+.state h3{font-size:15px;color:var(--t2);font-weight:700}
+.state p{font-size:12px;max-width:320px;line-height:1.65}
+.spin-ring{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:calc(18px + var(--safe-bot));left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a18;color:#fff;padding:9px 16px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:1000;transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:90vw;text-align:center;box-shadow:var(--shadow)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#1b7a4a}
+.toast.warn{background:#b45309}
+.toast.err{background:#b91c1c}
+
+/* ── FOOTER ── */
+.foot{font-size:10px;color:var(--t3);text-align:right;padding:4px 14px;background:var(--card);border-top:1px solid var(--border);flex-shrink:0}
+
+/* ── PRINT ── */
+@media print{
+  .hdr{background:var(--blue)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ctrl-bar,.info-bar,.hacts,.btn-rst,#b-update,#b-offline,#b-error,.toast,.foot{display:none!important}
+  html,body{height:auto;overflow:visible}
+  .rwrap{overflow:visible}
+  .twrap{overflow:visible}
+  thead{position:static}
+  tr{page-break-inside:avoid}
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .logo-sub{display:none}
+  .ctrl select{min-width:120px;font-size:12px}
+  .stat-val{font-size:16px}
+  td,th{padding:6px 8px}
+}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .sdot.spin,.spin-ring{animation:none}
+  .toast{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="banner" id="b-update">
+  🔄 Nueva versión disponible
+  <button class="btn-bn upd" onclick="doUpdate()">Actualizar ahora</button>
+</div>
+<div class="banner" id="b-offline">
+  📴 <b>Sin conexión</b> — Mostrando datos en caché. Se sincronizará al recuperar conexión.
+</div>
+<div class="banner" id="b-error">
+  ⚠️ <span id="b-error-msg"></span>
+  <button class="btn-bn err" onclick="showHelp()">Ayuda</button>
+</div>
+
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-icon">☀️</div>
+    <div>
+      <div class="logo-text">VILLENA PSFV</div>
+      <div class="logo-sub">PSFV Villena-Alicante · Control de Producción</div>
+    </div>
+  </div>
+  <div class="hacts">
+    <div class="sbadge"><div class="sdot" id="sdot"></div><span id="slbl">Iniciando…</span></div>
+    <button class="btn-h" id="btn-sync" onclick="syncNow(true)" title="Sincronizar ahora">↻ Sync</button>
+    <button class="btn-h" onclick="window.print()" title="Imprimir / Exportar PDF">🖨</button>
+    <button class="btn-h" id="btn-theme" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+  </div>
+</div>
+
+<div class="ctrl-bar">
+  <div class="ctrl">
+    <label>Hoja</label>
+    <select id="sel-hoja" onchange="onHoja()">
+      <option value="">— Cargando… —</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <label>Filtrar por</label>
+    <select id="sel-col" onchange="onCol()" disabled>
+      <option value="">— Elige hoja —</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <label>Valor</label>
+    <select id="sel-val" onchange="onVal()" disabled>
+      <option value="">— Elige columna —</option>
+    </select>
+  </div>
+  <button class="btn-rst" id="btn-rst" onclick="resetAll()" style="display:none">✕ Limpiar</button>
+</div>
+
+<div class="info-bar" id="info-bar"></div>
+<div class="stats-row" id="stats-row"></div>
+
+<div class="rwrap" id="rwrap">
+  <div class="state" id="init-state">
+    <div class="spin-ring"></div>
+    <h3>Conectando…</h3>
+    <p>Descargando datos del Sheet. Si no hay conexión, se usarán los datos guardados localmente.</p>
+  </div>
+</div>
+
+<div class="foot" id="foot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const SHEET_ID = '1ZEAfFUN-22FxJH2RL-_bZzePzalgnCzEFzjahxOEOyQ';
+const SYNC_MS  = 5 * 60 * 1000;
+const DB_NAME  = 'VILLENA_v1';
+const ST_DATA  = 'data';
+const ST_META  = 'meta';
+
+// Hojas conocidas del sheet (con su GID real) — se leen siempre por nombre,
+// así funcionan aunque el GID no sea uno de los "pequeños" habituales.
+const KNOWN_SHEETS = {
+  'MONTAJE CTS'        : '1352804350',
+  'FUSIONADO CTS'      : '436573929',
+  'FUSIONADO GONVARRI' : '211912954',
+};
+
+// Columnas que se tratan como ESTADO para colorear (autodetectadas)
+const STATUS_COL_NAMES = ['estado','status','estatus','fusionado'];
+// Valores de estado y su color
+const STATUS_MAP = {
+  'TENDIDO'      : 'green',
+  'INSTALADO'    : 'green',
+  'COMPLETADO'   : 'green',
+  'REALIZADO'    : 'green',
+  'PENDIENTE'    : 'amber',
+  'EN CURSO'     : 'amber',
+  'EN PROCESO'   : 'amber',
+  'SIN TENDER'   : 'red',
+  'CANCELADO'    : 'red',
+  'PARADO'       : 'red',
+  'NO REALIZADO' : 'red',
+};
+
+// ═══════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════
+let db = null, allData = {}, knownSheets = [], newSheets = new Set();
+let curSheet = '', curCol = -1, curVal = '', sortSt = {col:-1,asc:true};
+let syncing = false, syncTimer = null, pendingSW = null, toastTmr = null;
+
+// ═══════════════════════════════════════════════
+// TEMA
+// ═══════════════════════════════════════════════
+(function initTheme(){
+  const saved = localStorage.getItem('villena-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+function toggleTheme(){
+  const curr = document.documentElement.getAttribute('data-theme');
+  const sys  = window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  const next = (curr || sys) === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('villena-theme', next);
+  document.getElementById('btn-theme').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+(function syncThemeIcon(){
+  const saved = localStorage.getItem('villena-theme');
+  const sys   = window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  document.getElementById('btn-theme').textContent = (saved||sys) === 'dark' ? '☀️' : '🌙';
+})();
+
+// ═══════════════════════════════════════════════
+// INDEXEDDB
+// ═══════════════════════════════════════════════
+function openDB(){
+  return new Promise((ok,fail)=>{
+    const r = indexedDB.open(DB_NAME,1);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(ST_DATA)) d.createObjectStore(ST_DATA);
+      if(!d.objectStoreNames.contains(ST_META)) d.createObjectStore(ST_META);
+    };
+    r.onsuccess = e => ok(e.target.result);
+    r.onerror   = e => fail(e.target.error);
+  });
+}
+function dbGet(store,key){
+  return new Promise((ok,fail)=>{
+    const r = db.transaction(store,'readonly').objectStore(store).get(key);
+    r.onsuccess = () => ok(r.result);
+    r.onerror   = () => fail(r.error);
+  });
+}
+function dbPut(store,key,val){
+  return new Promise((ok,fail)=>{
+    const r = db.transaction(store,'readwrite').objectStore(store).put(val,key);
+    r.onsuccess = () => ok();
+    r.onerror   = () => fail(r.error);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CSV PARSER
+// ═══════════════════════════════════════════════
+function parseCSV(txt){
+  const rows=[];let row=[],f='',inQ=false;
+  for(let i=0;i<txt.length;i++){
+    const c=txt[i];
+    if(inQ){if(c==='"'){if(txt[i+1]==='"'){f+='"';i++;}else inQ=false;}else f+=c;}
+    else if(c==='"'){inQ=true;}
+    else if(c===','){row.push(f);f='';}
+    else if(c==='\n'||(c==='\r'&&txt[i+1]==='\n')){
+      if(c==='\r')i++;row.push(f);f='';
+      if(row.length)rows.push(row);row=[];
+    }else f+=c;
+  }
+  if(f||row.length){row.push(f);if(row.length)rows.push(row);}
+  return rows;
+}
+
+// Elimina columnas donde el encabezado está vacío
+function stripEmptyCols(h,r){
+  const keep=h.map((v,i)=>v.trim()!==''?i:-1).filter(i=>i>=0);
+  if(keep.length===h.length)return{h,r};
+  return{
+    h:keep.map(i=>h[i]),
+    r:r.map(row=>keep.map(i=>row[i]??''))
+  };
+}
+
+// ═══════════════════════════════════════════════
+// FETCH HOJA (por GID o por nombre)
+// ═══════════════════════════════════════════════
+async function fetchSheet(name){
+  const gid = window._GID_MAP && window._GID_MAP[name];
+  const url  = gid
+    ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`
+    : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
+  const r = await fetch(url,{cache:'no-store'});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const txt = await r.text();
+  if(txt.trim().startsWith('<!')) throw new Error('Sheet no público o nombre de hoja incorrecto');
+  const rows = parseCSV(txt);
+  if(!rows.length) return{h:[],r:[]};
+  const raw = {h:rows[0], r:rows.slice(1).filter(row=>row.some(c=>c.trim()!==''))};
+  return stripEmptyCols(raw.h, raw.r);
+}
+
+// ═══════════════════════════════════════════════
+// DESCUBRIR HOJAS
+// — Primero se comprueban las hojas conocidas (por GID real).
+// — Luego se sondean GIDs pequeños por si aparecen hojas nuevas
+//   que Google no nos ha dicho aún cómo se llaman.
+//   Google redirige GIDs inválidos a la hoja por defecto, así que
+//   usamos el fingerprint de las primeras filas para no contar
+//   la misma hoja dos veces.
+// ═══════════════════════════════════════════════
+async function fetchSheetNames(){
+  const found = [], seenFP = new Set();
+  window._GID_MAP = {};
+
+  // 1) Hojas conocidas, por GID real
+  for(const [name,gid] of Object.entries(KNOWN_SHEETS)){
+    try{
+      const r = await fetch(
+        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`,
+        {cache:'no-store'}
+      );
+      if(!r.ok) continue;
+      const t = await r.text();
+      if(!t || t.trim().startsWith('<!')) continue;
+      const fp = t.split('\n').slice(0,2).join('|');
+      seenFP.add(fp);
+      window._GID_MAP[name] = gid;
+      found.push(name);
+    }catch(e){ continue; }
+  }
+
+  // 2) Sondeo de GIDs pequeños por si hay hojas nuevas sin catalogar
+  const PROBE_GIDS = ['0','1','2','3','4','5','6','7','8','9','10',
+                      '11','12','13','14','15','16','17','18','19','20'];
+  const knownGids = new Set(Object.values(KNOWN_SHEETS));
+  for(const gid of PROBE_GIDS){
+    if(knownGids.has(gid)) continue;
+    try{
+      const r = await fetch(
+        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`,
+        {cache:'no-store'}
+      );
+      if(!r.ok) continue;
+      const t = await r.text();
+      if(!t || t.trim().startsWith('<!')) continue;
+
+      const fp = t.split('\n').slice(0,2).join('|');
+      if(seenFP.has(fp)) continue;
+      seenFP.add(fp);
+
+      const firstRow = t.split('\n')[0].split(',');
+      const label = firstRow
+        .map(c=>c.replace(/"/g,'').trim())
+        .find(c=>c.length>0) || ('Hoja_'+gid);
+
+      window._GID_MAP[label.slice(0,50)] = gid;
+      found.push(label.slice(0,50));
+    }catch(e){ continue; }
+  }
+
+  if(!found.length) throw new Error('No se encontraron hojas. Verifica que el Sheet sea público (Compartir → Cualquiera con el enlace → Lector).');
+
+  return found;
+}
+
+// ═══════════════════════════════════════════════
+// SINCRONIZACIÓN
+// ═══════════════════════════════════════════════
+async function syncNow(manual=false){
+  if(syncing){if(manual)toast('⏳ Sync en curso…','warn');return;}
+  if(!navigator.onLine){if(manual)toast('📴 Sin conexión. Datos locales activos.','warn');return;}
+  syncing=true;
+  setSyncState('spin','Sincronizando…');
+  document.getElementById('btn-sync').disabled=true;
+  hideBanner('b-error');
+  try{
+    let names;
+    try{ names = await fetchSheetNames(); }
+    catch(e){
+      console.warn('fetchSheetNames error:',e);
+      if(knownSheets.length) names = knownSheets;
+      else throw e;
+    }
+
+    const prevSet = new Set(knownSheets);
+    newSheets = new Set(names.filter(n=>knownSheets.length&&!prevSet.has(n)));
+
+    const nd={}, errs=[];
+    for(const n of names){
+      try{ nd[n] = await fetchSheet(n); }
+      catch(e){ errs.push(n); if(allData[n]) nd[n]=allData[n]; console.warn(`Hoja "${n}":`,e); }
+    }
+
+    allData = nd; knownSheets = names;
+    const ts = new Date().toISOString();
+    if(db){
+      await dbPut(ST_DATA,'all',allData);
+      await dbPut(ST_META,'sheets',knownSheets);
+      await dbPut(ST_META,'ts',ts);
+    }
+
+    buildSheetSelector();
+    setFoot(ts,false);
+    if(curSheet && !allData[curSheet]) resetAll();
+    else if(curSheet){ renderTable(filtered()); refreshValSel(); }
+
+    const nn = newSheets.size;
+    if(errs.length && Object.keys(nd).length){
+      setSyncState('warn',`Sync parcial (${errs.length} error)`);
+      if(manual) toast(`⚠️ ${errs.length} hoja(s) no actualizadas`,'warn');
+    }else{
+      setSyncState('ok','Sincronizado');
+      if(manual) toast(`✅ Sync OK${nn?' · '+nn+' hoja'+(nn>1?'s nueva':'s nueva'):''}`, 'ok');
+    }
+  }catch(e){
+    console.error('Sync error:',e);
+    setSyncState('err','Error');
+    showBanner('b-error', e.message);
+    if(manual) toast('❌ '+e.message,'err');
+    if(!Object.keys(allData).length) showStateError(e.message);
+  }finally{
+    syncing=false;
+    document.getElementById('btn-sync').disabled=false;
+    resetSyncTimer();
+  }
+}
+
+function resetSyncTimer(){
+  if(syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>syncNow(false), SYNC_MS);
+}
+
+// ═══════════════════════════════════════════════
+// CACHÉ LOCAL
+// ═══════════════════════════════════════════════
+async function loadCache(){
+  if(!db) return false;
+  try{
+    const d  = await dbGet(ST_DATA,'all');
+    const s  = await dbGet(ST_META,'sheets');
+    const ts = await dbGet(ST_META,'ts');
+    if(d && Object.keys(d).length){
+      allData = d; knownSheets = s || Object.keys(d);
+      buildSheetSelector(); setFoot(ts,true); return true;
+    }
+  }catch(e){ console.warn('loadCache:',e); }
+  return false;
+}
+
+// ═══════════════════════════════════════════════
+// SELECTORES
+// ═══════════════════════════════════════════════
+function buildSheetSelector(){
+  const sel  = document.getElementById('sel-hoja');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Selecciona hoja —</option>';
+  const sheets = Object.keys(allData).sort((a,b)=>a.localeCompare(b,'es'));
+  sheets.forEach(n=>{
+    const o = document.createElement('option');
+    o.value = n;
+    o.textContent = n + (newSheets.has(n)?' 🆕':'');
+    sel.appendChild(o);
+  });
+
+  if(prev && allData[prev]){
+    sel.value = prev;
+  } else if(sheets.length === 1){
+    // Auto-seleccionar si hay una sola hoja
+    sel.value = sheets[0];
+    onHoja();
+  } else {
+    showWelcome();
+  }
+}
+
+function onHoja(){
+  curSheet = document.getElementById('sel-hoja').value;
+  curCol=-1; curVal=''; sortSt={col:-1,asc:true};
+  const sc=document.getElementById('sel-col');
+  const sv=document.getElementById('sel-val');
+  sc.disabled=true; sv.disabled=true;
+  sc.innerHTML='<option value="">— Elige columna —</option>';
+  sv.innerHTML='<option value="">— Elige columna —</option>';
+  document.getElementById('btn-rst').style.display='none';
+  if(!curSheet || !allData[curSheet]){ showWelcome(); return; }
+  const h = allData[curSheet].h;
+  h.forEach((hdr,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=hdr||`Col ${i+1}`;
+    sc.appendChild(o);
+  });
+  sc.disabled=false;
+  updateInfoBar();
+  renderTable(allData[curSheet].r, h);
+}
+
+function onCol(){
+  curCol = parseInt(document.getElementById('sel-col').value);
+  if(isNaN(curCol)) return;
+  curVal='';
+  const sv = document.getElementById('sel-val');
+  sv.innerHTML='<option value="">— Selecciona valor —</option>';
+  const rows = allData[curSheet]?.r||[];
+  [...new Set(rows.map(r=>r[curCol]??'').filter(v=>v!==''))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=v; o.textContent=v; sv.appendChild(o);
+  });
+  sv.disabled=false;
+  updateInfoBar();
+  renderTable(filtered());
+}
+
+function onVal(){
+  curVal = document.getElementById('sel-val').value;
+  document.getElementById('btn-rst').style.display = curVal ? '' : 'none';
+  const rows = filtered();
+  renderTable(rows);
+  updateInfoBar();
+  updateStats(rows);
+}
+
+function filtered(){
+  if(!curSheet || !allData[curSheet]) return[];
+  const r = allData[curSheet].r;
+  if(curCol<0 || !curVal) return r;
+  return r.filter(row=>(row[curCol]??'')===curVal);
+}
+
+function resetAll(){
+  curCol=-1; curVal=''; sortSt={col:-1,asc:true};
+  document.getElementById('sel-col').value='';
+  const sv=document.getElementById('sel-val');
+  sv.innerHTML='<option value="">— Elige columna —</option>';
+  sv.disabled=true;
+  document.getElementById('btn-rst').style.display='none';
+  document.getElementById('info-bar').classList.remove('show');
+  document.getElementById('stats-row').classList.remove('show');
+  if(curSheet && allData[curSheet]) renderTable(allData[curSheet].r, allData[curSheet].h);
+}
+
+function refreshValSel(){
+  if(curCol<0) return;
+  const sv=document.getElementById('sel-val');
+  const prev=sv.value;
+  const vals=[...new Set((allData[curSheet]?.r||[]).map(r=>r[curCol]??'').filter(v=>v!==''))].sort();
+  sv.innerHTML='<option value="">— Selecciona valor —</option>';
+  vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sv.appendChild(o);});
+  if(prev) sv.value=prev;
+}
+
+// ═══════════════════════════════════════════════
+// RENDER TABLA
+// ═══════════════════════════════════════════════
+function statusPill(val){
+  const v = String(val).toUpperCase().trim();
+  const type = STATUS_MAP[v] || null;
+  if(!type) return esc(val);
+  const dot = {green:'🟢',amber:'🟡',red:'🔴',violet:'🟣'}[type]||'';
+  return `<span class="pill pill-${type}">${dot} ${esc(val)}</span>`;
+}
+
+function isStatusCol(hdr){
+  return STATUS_COL_NAMES.includes((hdr||'').toLowerCase().trim());
+}
+
+function renderTable(rows, headers){
+  const wrap = document.getElementById('rwrap');
+  const h = headers || (curSheet ? allData[curSheet]?.h : []) || [];
+  if(!curSheet || !h.length){ showWelcome(); return; }
+
+  if(!rows.length && curVal){
+    wrap.innerHTML=`<div class="state"><div class="ico">🔍</div><h3>Sin resultados</h3><p>No hay registros con <strong>${esc(h[curCol]||'')}</strong> = <strong>${esc(curVal)}</strong></p></div>`;
+    setCount(0); return;
+  }
+
+  let sr=[...rows];
+  if(sortSt.col>=0){
+    sr.sort((a,b)=>{
+      const va=a[sortSt.col]??'', vb=b[sortSt.col]??'';
+      const na=parseFloat(va), nb=parseFloat(vb);
+      const c=(!isNaN(na)&&!isNaN(nb))?na-nb:String(va).localeCompare(String(vb),'es');
+      return sortSt.asc?c:-c;
+    });
+  }
+
+  let html=`<div class="rhead"><span class="rtitle">${esc(curSheet)}</span><span class="rcount" id="rcount">${sr.length} registros</span></div><div class="twrap"><table><thead><tr>`;
+  h.forEach((col,i)=>{
+    const s=sortSt.col===i;
+    const arr=s?(sortSt.asc?'▲':'▼'):'⇅';
+    const hl=(i===curCol&&curVal)?' chs':'';
+    html+=`<th class="${s?'sorted':''}${hl}" onclick="sortBy(${i})">${esc(col||'')}<span class="si">${arr}</span></th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+  sr.forEach(row=>{
+    html+='<tr>';
+    h.forEach((hdr,i)=>{
+      const v=row[i]??'';
+      const isH=(i===curCol&&curVal&&v===curVal);
+      const isSt=isStatusCol(hdr);
+      const content = v!==''
+        ? (isSt ? statusPill(v) : esc(String(v)))
+        : '<span class="ec">—</span>';
+      html+=`<td class="${isH?'hl':''}">${content}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+  setCount(sr.length);
+}
+
+function sortBy(col){
+  if(sortSt.col===col) sortSt.asc=!sortSt.asc;
+  else sortSt={col,asc:true};
+  renderTable(filtered());
+}
+function setCount(n){const el=document.getElementById('rcount');if(el)el.textContent=`${n} registros`;}
+
+// ═══════════════════════════════════════════════
+// INFO BAR & STATS
+// ═══════════════════════════════════════════════
+function updateInfoBar(){
+  const bar=document.getElementById('info-bar');
+  if(!curSheet){bar.classList.remove('show');return;}
+  const h=allData[curSheet]?.h||[];
+  let html=`<span class="itag">${esc(curSheet)}</span>`;
+  if(curCol>=0&&h[curCol]) html+=` Filtrado por <strong>${esc(h[curCol])}</strong>`+(curVal?` → <strong>${esc(curVal)}</strong>`:'');
+  bar.innerHTML=html; bar.classList.add('show');
+}
+
+function updateStats(rows){
+  const sr=document.getElementById('stats-row');
+  if(!curVal||curCol<0||!rows.length){sr.classList.remove('show');return;}
+  const h=allData[curSheet]?.h||[];
+
+  // Columnas numéricas
+  const numCols=[];
+  h.forEach((name,i)=>{
+    if(i===curCol)return;
+    const nums=rows.map(r=>parseFloat(r[i])).filter(n=>!isNaN(n));
+    if(nums.length>rows.length*.3) numCols.push({name,nums,i});
+  });
+
+  let html=numCols.slice(0,4).map(({name,nums})=>{
+    const s=nums.reduce((a,b)=>a+b,0);
+    const fmt=s%1===0?s.toLocaleString('es-ES'):s.toFixed(1);
+    const unit=name.toLowerCase().includes('m)')?' m':'';
+    return`<div class="stat"><div class="stat-lbl">${esc(name)}</div><div class="stat-val">${fmt}<span class="stat-unit">${unit||'total'}</span></div></div>`;
+  }).join('');
+
+  html+=`<div class="stat"><div class="stat-lbl">Registros</div><div class="stat-val">${rows.length}</div></div>`;
+  sr.innerHTML=html; sr.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════
+function showWelcome(){
+  const n=Object.keys(allData).length;
+  const msg=n
+    ?`Selecciona una <strong>hoja</strong> (${n} disponible${n>1?'s':''}), luego la <strong>columna</strong> y el <strong>valor</strong> a consultar.`
+    :'Esperando datos del Sheet…';
+  document.getElementById('rwrap').innerHTML=`<div class="state"><div class="ico">📋</div><h3>VILLENA PSFV</h3><p>${msg}</p></div>`;
+  document.getElementById('stats-row').classList.remove('show');
+  document.getElementById('info-bar').classList.remove('show');
+}
+function showStateError(msg){
+  document.getElementById('rwrap').innerHTML=`<div class="state"><div class="ico">❌</div><h3>No se pudo cargar</h3><p>${esc(msg)}</p></div>`;
+}
+function showHelp(){
+  document.getElementById('rwrap').innerHTML=`<div class="state"><div class="ico">📋</div><h3>Configurar acceso al Sheet</h3><p>1. Abre el Google Sheet<br>2. Clic en <strong>Compartir</strong><br>3. "Acceso general" → <strong>Cualquiera con el enlace → Lector</strong><br><br>Luego pulsa ↻ Sync.</p></div>`;
+}
+function setSyncState(state,lbl){
+  const d=document.getElementById('sdot');
+  d.className='sdot';
+  if(state==='spin') d.classList.add('spin');
+  else if(state==='err'||state==='warn') d.classList.add('err');
+  else if(state==='off') d.classList.add('off');
+  document.getElementById('slbl').textContent=lbl;
+}
+function showBanner(id,msg){
+  const el=document.getElementById(id);
+  el.classList.add('show');
+  if(msg){const m=document.getElementById('b-error-msg');if(m)m.textContent=msg;}
+}
+function hideBanner(id){document.getElementById(id).classList.remove('show');}
+function setFoot(ts,cached){
+  const el=document.getElementById('foot');
+  if(!ts){el.textContent='';return;}
+  try{
+    const d=new Date(ts);
+    const f=d.toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    el.textContent=(cached?'📦 Caché · ':'☁️ Sync: ')+f;
+  }catch{el.textContent='';}
+}
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast'+(type?' '+type:'');
+  void t.offsetHeight; t.classList.add('show');
+  if(toastTmr) clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>t.classList.remove('show'),3500);
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ═══════════════════════════════════════════════
+// ONLINE / OFFLINE / VISIBILIDAD
+// ═══════════════════════════════════════════════
+window.addEventListener('online',()=>{
+  hideBanner('b-offline'); setSyncState('spin','Reconectando…');
+  toast('📶 Conexión restaurada — sincronizando…'); syncNow(false);
+});
+window.addEventListener('offline',()=>{
+  showBanner('b-offline'); setSyncState('off','Sin conexión');
+  if(syncTimer) clearTimeout(syncTimer);
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && navigator.onLine){
+    if(db) dbGet(ST_META,'ts').then(ts=>{
+      if(!ts||(Date.now()-new Date(ts).getTime())>2*60*1000) syncNow(false);
+    }).catch(()=>syncNow(false));
+    else syncNow(false);
+  }
+});
+navigator.serviceWorker?.addEventListener('message',e=>{
+  if(e.data?.type==='BACKGROUND_SYNC') syncNow(false);
+});
+
+// ═══════════════════════════════════════════════
+// SERVICE WORKER
+// ═══════════════════════════════════════════════
+function doUpdate(){
+  if(pendingSW) pendingSW.postMessage({type:'SKIP_WAITING'});
+  window.location.reload();
+}
+async function registerSW(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    const reg = await navigator.serviceWorker.register('sw.js');
+    reg.addEventListener('updatefound',()=>{
+      const nw = reg.installing;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed' && navigator.serviceWorker.controller){
+          pendingSW=nw; showBanner('b-update');
+        }
+      });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+  }catch(e){ console.warn('SW:',e); }
+}
+
+// ═══════════════════════════════════════════════
+// ARRANQUE
+// ═══════════════════════════════════════════════
+async function init(){
+  try{ db = await openDB(); }catch(e){ console.warn('IndexedDB:',e); }
+  registerSW();
+  const hasCached = await loadCache();
+  if(hasCached){ setSyncState('ok','Datos locales'); }
+  if(!hasCached){
+    const st = document.getElementById('init-state');
+    if(st) st.innerHTML='<div class="spin-ring"></div><h3>Conectando con el Sheet…</h3><p>Descargando datos. Si no hay conexión, se usarán los datos guardados.</p>';
+  }
+  if(navigator.onLine) await syncNow(false);
+  else{
+    showBanner('b-offline'); setSyncState('off','Sin conexión');
+    if(!hasCached) showStateError('Sin conexión y sin datos en caché. Conéctate para la primera carga.');
+  }
+  resetSyncTimer();
+}
+init().catch(console.error);
+</script>
+</body>
+</html>

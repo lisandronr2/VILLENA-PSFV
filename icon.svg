@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#B45309"/>
+  <text x="256" y="320" font-family="system-ui,sans-serif" font-size="260" font-weight="700" fill="white" text-anchor="middle">☀️</text>
+  <text x="256" y="440" font-family="system-ui,sans-serif" font-size="60" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="2">VILLENA PSFV</text>
+</svg>
