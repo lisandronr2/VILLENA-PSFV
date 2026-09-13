@@ -344,10 +344,7 @@ tr:last-child td{border-bottom:none}
 </head>
 <body>
 
-<div class="banner" id="b-update">
-  🔄 Nueva versión disponible
-  <button class="btn-bn upd" onclick="doUpdate()">Actualizar ahora</button>
-</div>
+<div class="banner" id="b-update" style="display:none"></div>
 <div class="banner" id="b-offline">
   📴 <b>Sin conexión</b> — Mostrando datos en caché. Se sincronizará al recuperar conexión.
 </div>
@@ -524,7 +521,7 @@ const STATUS_MAP = {
 // ═══════════════════════════════════════════════
 let db = null, allData = {}, knownSheets = [], newSheets = new Set();
 let curSheet = '', curCol = -1, curVal = '', sortSt = {col:-1,asc:true};
-let syncing = false, syncTimer = null, pendingSW = null, toastTmr = null;
+let syncing = false, syncTimer = null, toastTmr = null;
 
 // ═══════════════════════════════════════════════
 // TEMA
@@ -1072,23 +1069,29 @@ navigator.serviceWorker?.addEventListener('message',e=>{
 // ═══════════════════════════════════════════════
 // SERVICE WORKER
 // ═══════════════════════════════════════════════
-function doUpdate(){
-  if(pendingSW) pendingSW.postMessage({type:'SKIP_WAITING'});
-  window.location.reload();
-}
 async function registerSW(){
   if(!('serviceWorker' in navigator)) return;
   try{
     const reg = await navigator.serviceWorker.register('sw.js');
+    // Comprobar si hay una versión nueva del Service Worker cada vez que se
+    // abre/reactiva la app, no solo en la carga inicial.
+    reg.update().catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+    });
     reg.addEventListener('updatefound',()=>{
       const nw = reg.installing;
       nw.addEventListener('statechange',()=>{
+        // Activar la versión nueva de inmediato, sin pedir confirmación
         if(nw.state==='installed' && navigator.serviceWorker.controller){
-          pendingSW=nw; showBanner('b-update');
+          nw.postMessage({type:'SKIP_WAITING'});
         }
       });
     });
-    navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      toast('🔄 App actualizada', 'ok');
+      setTimeout(()=>window.location.reload(), 600);
+    });
   }catch(e){ console.warn('SW:',e); }
 }
 

@@ -1,16 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-// SERVICE WORKER — VILLENA PSFV PWA v1
+// SERVICE WORKER — VILLENA PSFV PWA v2
 // ═══════════════════════════════════════════════════════════
-const SHELL_CACHE  = 'villena-shell-v1';
-const SHEETS_CACHE = 'villena-sheets-v1';
+const SHELL_CACHE  = 'villena-shell-v2';
+const SHEETS_CACHE = 'villena-sheets-v2';
 const SHELL_FILES  = ['./', './index.html', './manifest.json', './icon.svg'];
 
-// INSTALL — precargar shell
+// INSTALL — precargar shell y activar la nueva versión sin esperar a que
+// se cierren las pestañas antiguas (se completa con controllerchange en la app)
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(SHELL_CACHE)
       .then(c => c.addAll(SHELL_FILES))
-      .then(() => self.skipWaiting())   // Activar inmediatamente
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -30,18 +31,19 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = e.request.url;
 
-  // Shell de la app: Cache First (instantáneo) + actualizar en bg
+  // Shell de la app: Network First — siempre la versión más reciente si hay
+  // conexión; caché solo como respaldo offline. Así los cambios se ven en
+  // cuanto se recarga la app, sin depender de que el propio sw.js cambie.
   if (isShell(url)) {
     e.respondWith(
-      caches.match(e.request).then(cached => {
-        const network = fetch(e.request).then(resp => {
+      fetch(e.request, { cache: 'no-store' })
+        .then(resp => {
           if (resp && resp.status === 200 && resp.type !== 'opaque') {
             caches.open(SHELL_CACHE).then(c => c.put(e.request, resp.clone()));
           }
           return resp;
-        }).catch(() => null);
-        return cached || network;
-      })
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
