@@ -119,6 +119,11 @@ body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--
 /* ── RESULTS AREA ── */
 .rwrap{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .rhead{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--border);background:var(--card2)}
+.rhead-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.zoom-ctrl{display:flex;align-items:center;gap:4px}
+.zoom-btn{width:24px;height:24px;border:1px solid var(--border-s);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.zoom-btn:hover{background:var(--card)}
+.zoom-pct{font-size:10.5px;color:var(--t3);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
 .rtitle{font-size:13px;font-weight:700;color:var(--text)}
 .rcount{font-size:11px;color:var(--t3);background:var(--surface);border:1px solid var(--border);padding:2px 10px;border-radius:99px}
 .twrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
@@ -279,9 +284,10 @@ tr:last-child td{border-bottom:none}
   body:not(.print-resumen) .hdr{background:var(--blue)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body:not(.print-resumen) .ctrl-bar,body:not(.print-resumen) .info-bar,body:not(.print-resumen) .hacts,
   body:not(.print-resumen) .btn-rst,body:not(.print-resumen) #b-update,body:not(.print-resumen) #b-offline,
-  body:not(.print-resumen) #b-error,body:not(.print-resumen) .toast,body:not(.print-resumen) .foot{display:none!important}
+  body:not(.print-resumen) #b-error,body:not(.print-resumen) .toast,body:not(.print-resumen) .foot,
+  body:not(.print-resumen) .zoom-ctrl{display:none!important}
   body:not(.print-resumen) .rwrap{overflow:visible}
-  body:not(.print-resumen) .twrap{overflow:visible}
+  body:not(.print-resumen) .twrap{overflow:visible;zoom:1!important}
   thead{position:static!important}
   body:not(.print-resumen) tr{page-break-inside:avoid}
 
@@ -928,7 +934,7 @@ function renderTable(rows, headers){
     });
   }
 
-  let html=`<div class="rhead"><span class="rtitle">${esc(curSheet)}</span><span class="rcount" id="rcount">${sr.length} registros</span></div><div class="twrap"><table><thead><tr>`;
+  let html=`<div class="rhead"><span class="rtitle">${esc(curSheet)}</span><div class="rhead-right"><span class="rcount" id="rcount">${sr.length} registros</span>${zoomCtrlHtml()}</div></div><div class="twrap"><table><thead><tr>`;
   h.forEach((col,i)=>{
     const s=sortSt.col===i;
     const arr=s?(sortSt.asc?'▲':'▼'):'⇅';
@@ -952,7 +958,65 @@ function renderTable(rows, headers){
   html+='</tbody></table></div>';
   wrap.innerHTML=html;
   setCount(sr.length);
+  applyTableZoom();
 }
+
+// ═══════════════════════════════════════════════
+// ZOOM DE TABLA — pellizcar con dos dedos (o botones +/−) para ver
+// columnas que no entran en la pantalla
+// ═══════════════════════════════════════════════
+let tableZoom = 1;
+const ZOOM_MIN = 0.4, ZOOM_MAX = 2;
+
+function zoomCtrlHtml(){
+  return `<div class="zoom-ctrl no-print" title="Pellizca la tabla o usa estos botones para ampliar/reducir">
+    <button class="zoom-btn" onclick="zoomTable(-0.1)">−</button>
+    <span class="zoom-pct" id="zoom-pct">${Math.round(tableZoom*100)}%</span>
+    <button class="zoom-btn" onclick="zoomTable(0.1)">+</button>
+  </div>`;
+}
+function zoomTable(delta){
+  tableZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(tableZoom+delta).toFixed(2)));
+  applyTableZoom();
+}
+function applyTableZoom(){
+  const twrap = document.querySelector('.twrap');
+  if(twrap) twrap.style.zoom = tableZoom;
+  const pct = document.getElementById('zoom-pct');
+  if(pct) pct.textContent = Math.round(tableZoom*100)+'%';
+}
+function touchDist(touches){
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+(function initPinchZoom(){
+  const rwrap = document.getElementById('rwrap');
+  let pinching=false, startDist=0, startZoom=1, lastTap=0;
+
+  rwrap.addEventListener('touchstart', e=>{
+    if(e.touches.length===2 && e.target.closest('.twrap')){
+      pinching=true; startDist=touchDist(e.touches); startZoom=tableZoom;
+    }
+  }, {passive:true});
+
+  rwrap.addEventListener('touchmove', e=>{
+    if(!pinching || e.touches.length!==2) return;
+    e.preventDefault();
+    const ratio = touchDist(e.touches)/startDist;
+    tableZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(startZoom*ratio).toFixed(2)));
+    applyTableZoom();
+  }, {passive:false});
+
+  rwrap.addEventListener('touchend', e=>{
+    if(e.touches.length<2) pinching=false;
+    if(e.touches.length===0 && e.target.closest('.twrap')){
+      const now=Date.now();
+      if(now-lastTap<300){ tableZoom=1; applyTableZoom(); }
+      lastTap=now;
+    }
+  });
+})();
 
 function sortBy(col){
   if(sortSt.col===col) sortSt.asc=!sortSt.asc;
