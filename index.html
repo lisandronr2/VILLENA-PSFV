@@ -494,9 +494,9 @@ const ST_META  = 'meta';
 // Hojas conocidas del sheet (con su GID real) — se leen siempre por nombre,
 // así funcionan aunque el GID no sea uno de los "pequeños" habituales.
 const KNOWN_SHEETS = {
-  'MONTAJE CTS'        : '1352804350',
-  'FUSIONADO CTS'      : '436573929',
-  'FUSIONADO GONVARRI' : '211912954',
+  'MONTAJE ARMARIO COM' : '1352804350',
+  'FUSIONADO CTS'       : '436573929',
+  'FUSIONADO GONVARRI'  : '211912954',
 };
 
 // Columnas que se tratan como ESTADO para colorear (autodetectadas)
@@ -904,7 +904,8 @@ function statusPill(val){
 }
 
 function isStatusCol(hdr){
-  return STATUS_COL_NAMES.includes((hdr||'').toLowerCase().trim());
+  const lc=(hdr||'').toLowerCase().trim();
+  return STATUS_COL_NAMES.some(n=>lc.includes(n));
 }
 
 function renderTable(rows, headers){
@@ -1189,13 +1190,13 @@ function matchPriceKeyword(text){
 // importe. Se resuelven por NOMBRE de columna (no por posición), así que
 // siguen funcionando si el sheet cambia el orden de las columnas.
 const RESUMEN_SHEETS = {
-  'MONTAJE CTS': {
+  'MONTAJE ARMARIO COM': {
     calc:'montajeCT',
-    hEstado:'ESTADO', hFusiones:'CANTIDAD FUSIONES',
+    hEstado:'ESTADO',
   },
   'FUSIONADO CTS': {
     calc:'fusionadoCT',
-    hEstado:'FUSIONADO', hPreparacion:'PREPARACION', hFusiones:'FUSIONES',
+    hEstado:'ESTADO FUSIONADO', hPreparacion:'PREPARACION', hFusiones:'FUSIONES',
   },
   'FUSIONADO GONVARRI': {
     calc:'elemento',
