@@ -1662,9 +1662,28 @@ function printSmart(){
 
   const clone = document.documentElement.cloneNode(true);
   clone.querySelectorAll('script').forEach(s=>s.remove());
+  const body = clone.querySelector('body') || clone;
+
+  // iOS Safari bloquea en silencio window.print() cuando no ocurre como
+  // reacción DIRECTA a un toque del usuario — llamarlo desde el evento
+  // "load" de la pestaña nueva no cuenta como gesto directo ahí, así que
+  // el PDF nunca se genera aunque la pestaña se vea bien. Por eso, además
+  // de intentar imprimir solo al cargar (funciona en la mayoría de
+  // Android), se agrega un botón visible: tocarlo sí es un gesto directo
+  // y funciona en cualquier navegador.
+  const bar = document.createElement('div');
+  bar.id = '__print_bar';
+  bar.style.cssText = 'position:sticky;top:0;z-index:99999;background:#185FA5;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:system-ui,-apple-system,sans-serif;font-size:13px';
+  bar.innerHTML = '<span>Toca el botón para exportar a PDF</span><button onclick="window.print()" style="background:#fff;color:#185FA5;border:none;border-radius:6px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">🖨 Imprimir / PDF</button>';
+  body.insertBefore(bar, body.firstChild);
+
+  const style = document.createElement('style');
+  style.textContent = '@media print{ #__print_bar{ display:none !important; } }';
+  (clone.querySelector('head')||clone).appendChild(style);
+
   const autoPrint = document.createElement('script');
-  autoPrint.textContent = 'window.onload=function(){window.print();};';
-  (clone.querySelector('body')||clone).appendChild(autoPrint);
+  autoPrint.textContent = "window.addEventListener('load',function(){ try{ window.print(); }catch(e){} });";
+  body.appendChild(autoPrint);
 
   const html = '<!DOCTYPE html>' + clone.outerHTML;
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
@@ -1678,10 +1697,10 @@ function printSmart(){
     document.body.appendChild(iframe);
     iframe.onload = () => {
       try{ iframe.contentWindow.print(); }catch(e){}
-      setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url); }, 3000);
+      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 5000);
     };
   } else {
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
 
   document.body.classList.remove('print-resumen');
