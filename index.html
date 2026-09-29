@@ -487,6 +487,8 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
 <script>
 // ═══════════════════════════════════════════════
 // CONFIG
@@ -1634,76 +1636,104 @@ function renderValorizacionResults(results, label){
   cont.innerHTML = blocksHtml + `<div class="res-grand-total"><span>TOTAL GENERAL</span><span>${fmtEuro(grandTotal)}</span></div>`;
 }
 
-function printMain(){
-  document.getElementById('resumen-overlay').classList.remove('show');
-  printSmart();
+// ═══════════════════════════════════════════════
+// EXPORTAR A PDF — se genera el archivo directamente en el dispositivo
+// (jsPDF + autoTable) y se comparte/descarga con el share sheet nativo.
+// No depende de window.print(): eso falla en silencio en muchas apps
+// instaladas (standalone) según el navegador/SO, así que en vez de abrir
+// un diálogo de impresión del sistema, el PDF sale ya armado.
+// ═══════════════════════════════════════════════
+async function sharePdf(doc, filename, title){
+  const blob = doc.output('blob');
+  const file = new File([blob], filename, {type:'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title}); return; }
+    catch(e){ if(e?.name === 'AbortError') return; }
+  }
+  doc.save(filename);
 }
-function printResumen(){
+
+function pdfDoc(){
+  const { jsPDF } = window.jspdf || {};
+  if(!jsPDF){ toast('❌ Generador de PDF no disponible. Revisa tu conexión e intenta de nuevo.','err'); return null; }
+  return new jsPDF({unit:'pt'});
+}
+
+async function printMain(){
+  if(!curSheet || !allData[curSheet]){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
+  const doc = pdfDoc(); if(!doc) return;
+  const headers = allData[curSheet].h;
+  const rows = filtered();
+
+  doc.setFontSize(14);
+  doc.text(curSheet, 40, 40);
+  doc.setFontSize(9);
+  doc.text(`${rows.length} registros · ${new Date().toLocaleDateString('es-ES')}`, 40, 55);
+  doc.autoTable({
+    startY: 65,
+    head: [headers],
+    body: rows.map(row => headers.map((_,i)=>String(row[i] ?? ''))),
+    styles: {fontSize:8, cellPadding:3},
+    headStyles: {fillColor:[180,83,9]},
+    margin: {left:30,right:30},
+  });
+
+  await sharePdf(doc, `villena_psfv_${new Date().toISOString().slice(0,10)}.pdf`, curSheet);
+}
+
+async function printResumen(){
   if(!lastResults) return;
-  document.body.classList.add('print-resumen');
-  printSmart();
-}
-window.addEventListener('afterprint', function(){
-  document.body.classList.remove('print-resumen');
-});
+  const doc = pdfDoc(); if(!doc) return;
+  const marginL = 30;
+  let y = 40;
 
-function isStandaloneMode(){
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-}
+  doc.setFontSize(16);
+  doc.text('Resumen de Producción — VILLENA PSFV', marginL, y); y += 18;
+  doc.setFontSize(10);
+  doc.text(lastResults.label, marginL, y); y += 20;
 
-// Con la app instalada (PWA en modo "standalone"), window.print() no hace
-// nada porque no hay UI de navegador que muestre el diálogo. Se genera un
-// documento HTML independiente (clon de la vista actual) como Blob y se
-// abre en una pestaña nueva real, que se imprime sola al cargar — mismo
-// patrón que ya usamos en RECDAGE. Si el navegador bloquea la ventana
-// emergente, se usa un iframe oculto como respaldo.
-function printSmart(){
-  if(!isStandaloneMode()){ window.print(); return; }
-
-  const clone = document.documentElement.cloneNode(true);
-  clone.querySelectorAll('script').forEach(s=>s.remove());
-  const body = clone.querySelector('body') || clone;
-
-  // iOS Safari bloquea en silencio window.print() cuando no ocurre como
-  // reacción DIRECTA a un toque del usuario — llamarlo desde el evento
-  // "load" de la pestaña nueva no cuenta como gesto directo ahí, así que
-  // el PDF nunca se genera aunque la pestaña se vea bien. Por eso, además
-  // de intentar imprimir solo al cargar (funciona en la mayoría de
-  // Android), se agrega un botón visible: tocarlo sí es un gesto directo
-  // y funciona en cualquier navegador.
-  const bar = document.createElement('div');
-  bar.id = '__print_bar';
-  bar.style.cssText = 'position:sticky;top:0;z-index:99999;background:#185FA5;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:system-ui,-apple-system,sans-serif;font-size:13px';
-  bar.innerHTML = '<span>Toca el botón para exportar a PDF</span><button onclick="window.print()" style="background:#fff;color:#185FA5;border:none;border-radius:6px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer">🖨 Imprimir / PDF</button>';
-  body.insertBefore(bar, body.firstChild);
-
-  const style = document.createElement('style');
-  style.textContent = '@media print{ #__print_bar{ display:none !important; } }';
-  (clone.querySelector('head')||clone).appendChild(style);
-
-  const autoPrint = document.createElement('script');
-  autoPrint.textContent = "window.addEventListener('load',function(){ try{ window.print(); }catch(e){} });";
-  body.appendChild(autoPrint);
-
-  const html = '<!DOCTYPE html>' + clone.outerHTML;
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  const url  = URL.createObjectURL(blob);
-
-  const w = window.open(url, '_blank');
-  if(!w){
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:0';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    iframe.onload = () => {
-      try{ iframe.contentWindow.print(); }catch(e){}
-      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url); }, 5000);
-    };
+  if(lastResults.mode === 'valorizacion'){
+    let grand = 0;
+    lastResults.sheets.forEach(({sheet, rows, totalEuros})=>{
+      if(y > 700){ doc.addPage(); y = 40; }
+      doc.setFontSize(12);
+      doc.text(sheet, marginL, y); y += 4;
+      doc.autoTable({
+        startY: y,
+        head: [['Concepto','Detalle','Importe']],
+        body: rows.map(r=>[r.label, r.detail||'', fmtEuro(r.total)]),
+        foot: [['Subtotal','', fmtEuro(totalEuros)]],
+        styles: {fontSize:9, cellPadding:3},
+        headStyles: {fillColor:[180,83,9]},
+        footStyles: {fillColor:[255,247,237], textColor:[180,83,9], fontStyle:'bold'},
+        margin: {left:marginL,right:marginL},
+      });
+      y = doc.lastAutoTable.finalY + 24;
+      grand += totalEuros;
+    });
+    if(y > 720){ doc.addPage(); y = 40; }
+    doc.setFontSize(13);
+    doc.setTextColor(180,83,9);
+    doc.text('TOTAL GENERAL: ' + fmtEuro(grand), marginL, y);
+    doc.setTextColor(0,0,0);
   } else {
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    lastResults.sheets.forEach(({sheet, headers, sortedRows})=>{
+      if(y > 700){ doc.addPage(); y = 40; }
+      doc.setFontSize(12);
+      doc.text(`${sheet} (${sortedRows.length} registros)`, marginL, y); y += 4;
+      doc.autoTable({
+        startY: y,
+        head: [headers],
+        body: sortedRows.map(row => headers.map((_,i)=>String(row[i] ?? ''))),
+        styles: {fontSize:8, cellPadding:3},
+        headStyles: {fillColor:[24,95,165]},
+        margin: {left:marginL,right:marginL},
+      });
+      y = doc.lastAutoTable.finalY + 24;
+    });
   }
 
-  document.body.classList.remove('print-resumen');
+  await sharePdf(doc, `resumen_${new Date().toISOString().slice(0,10)}.pdf`, 'Resumen de producción');
 }
 
 // Nombres de hoja de Excel: máx 31 caracteres, sin \ / ? * [ ] : y sin repetirse.
