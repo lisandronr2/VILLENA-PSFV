@@ -1635,13 +1635,15 @@ function renderValorizacionResults(results, label){
 }
 
 function printMain(){
+  if(isStandaloneMode()){ showPrintHelp(); return; }
   document.getElementById('resumen-overlay').classList.remove('show');
-  printSmart();
+  window.print();
 }
 function printResumen(){
   if(!lastResults) return;
+  if(isStandaloneMode()){ showPrintHelp(); return; }
   document.body.classList.add('print-resumen');
-  printSmart();
+  window.print();
 }
 window.addEventListener('afterprint', function(){
   document.body.classList.remove('print-resumen');
@@ -1649,28 +1651,38 @@ window.addEventListener('afterprint', function(){
 
 // Con la app instalada (PWA en modo "standalone"), window.print() no hace
 // nada en la mayoría de navegadores porque no hay UI de navegador para
-// mostrar el diálogo de impresión. En ese caso, clonamos el documento
-// actual (ya con las clases de impresión aplicadas) en una pestaña normal
-// del navegador, donde sí funciona.
-function printSmart(){
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if(!isStandalone){ window.print(); return; }
-  const clone = document.documentElement.cloneNode(true);
-  clone.querySelectorAll('script').forEach(s=>s.remove());
-  const printWin = window.open('', '_blank');
-  if(!printWin){
-    toast('⚠️ Habilita las ventanas emergentes en el navegador para poder imprimir','warn');
-    document.body.classList.remove('print-resumen');
-    return;
+// mostrar el diálogo de impresión. Antes se intentaba clonar el documento
+// en una pestaña nueva, pero en algunos navegadores window.open('', '_blank')
+// reutiliza la MISMA ventana en vez de abrir una nueva: al escribir el clon
+// ahí se sobrescribía la app en vivo (pantalla en blanco / app bloqueada).
+// Ahora, en vez de arriesgarse a romper la app, se muestran instrucciones
+// para abrir el enlace en el navegador normal.
+function isStandaloneMode(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+function showPrintHelp(){
+  let ov = document.getElementById('print-help-overlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'print-help-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML = `
+      <div style="background:var(--card);color:var(--text);border-radius:var(--r);padding:20px;max-width:340px;width:100%;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px;font-weight:700">🖨 Para exportar a PDF</div>
+        <div style="font-size:12.5px;color:var(--t2);line-height:1.6">Esta app está instalada, así que el navegador no puede abrir aquí el diálogo de impresión. Copia este enlace y ábrelo en Chrome o Safari (no en la app instalada) — ahí sí podrás imprimir o exportar a PDF con normalidad.</div>
+        <input id="print-help-url" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border-s);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px">
+        <button onclick="copyPrintHelpUrl()" style="height:40px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer">📋 Copiar enlace</button>
+        <button onclick="document.getElementById('print-help-overlay').style.display='none'" style="height:36px;border:1px solid var(--border-s);border-radius:8px;background:transparent;color:var(--text);cursor:pointer">Cerrar</button>
+      </div>`;
+    document.body.appendChild(ov);
   }
-  printWin.document.open();
-  printWin.document.write('<!DOCTYPE html>' + clone.outerHTML);
-  printWin.document.close();
-  const doPrint = ()=>{ try{ printWin.focus(); printWin.print(); }catch(e){} };
-  if(printWin.document.readyState === 'complete') doPrint();
-  else printWin.onload = doPrint;
-  // La copia ya lleva las clases de impresión; se pueden limpiar ya en el documento original.
-  document.body.classList.remove('print-resumen');
+  document.getElementById('print-help-url').value = location.href;
+  ov.style.display = 'flex';
+}
+function copyPrintHelpUrl(){
+  const inp = document.getElementById('print-help-url');
+  inp.select();
+  navigator.clipboard?.writeText(inp.value).then(()=>toast('✅ Enlace copiado','ok')).catch(()=>toast('Selecciona y copia el enlace manualmente','warn'));
 }
 
 // Nombres de hoja de Excel: máx 31 caracteres, sin \ / ? * [ ] : y sin repetirse.
