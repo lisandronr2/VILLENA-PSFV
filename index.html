@@ -1635,54 +1635,56 @@ function renderValorizacionResults(results, label){
 }
 
 function printMain(){
-  if(isStandaloneMode()){ showPrintHelp(); return; }
   document.getElementById('resumen-overlay').classList.remove('show');
-  window.print();
+  printSmart();
 }
 function printResumen(){
   if(!lastResults) return;
-  if(isStandaloneMode()){ showPrintHelp(); return; }
   document.body.classList.add('print-resumen');
-  window.print();
+  printSmart();
 }
 window.addEventListener('afterprint', function(){
   document.body.classList.remove('print-resumen');
 });
 
-// Con la app instalada (PWA en modo "standalone"), window.print() no hace
-// nada en la mayoría de navegadores porque no hay UI de navegador para
-// mostrar el diálogo de impresión. Antes se intentaba clonar el documento
-// en una pestaña nueva, pero en algunos navegadores window.open('', '_blank')
-// reutiliza la MISMA ventana en vez de abrir una nueva: al escribir el clon
-// ahí se sobrescribía la app en vivo (pantalla en blanco / app bloqueada).
-// Ahora, en vez de arriesgarse a romper la app, se muestran instrucciones
-// para abrir el enlace en el navegador normal.
 function isStandaloneMode(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 }
-function showPrintHelp(){
-  let ov = document.getElementById('print-help-overlay');
-  if(!ov){
-    ov = document.createElement('div');
-    ov.id = 'print-help-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML = `
-      <div style="background:var(--card);color:var(--text);border-radius:var(--r);padding:20px;max-width:340px;width:100%;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px">
-        <div style="font-size:15px;font-weight:700">🖨 Para exportar a PDF</div>
-        <div style="font-size:12.5px;color:var(--t2);line-height:1.6">Esta app está instalada, así que el navegador no puede abrir aquí el diálogo de impresión. Copia este enlace y ábrelo en Chrome o Safari (no en la app instalada) — ahí sí podrás imprimir o exportar a PDF con normalidad.</div>
-        <input id="print-help-url" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border-s);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px">
-        <button onclick="copyPrintHelpUrl()" style="height:40px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer">📋 Copiar enlace</button>
-        <button onclick="document.getElementById('print-help-overlay').style.display='none'" style="height:36px;border:1px solid var(--border-s);border-radius:8px;background:transparent;color:var(--text);cursor:pointer">Cerrar</button>
-      </div>`;
-    document.body.appendChild(ov);
+
+// Con la app instalada (PWA en modo "standalone"), window.print() no hace
+// nada porque no hay UI de navegador que muestre el diálogo. Se genera un
+// documento HTML independiente (clon de la vista actual) como Blob y se
+// abre en una pestaña nueva real, que se imprime sola al cargar — mismo
+// patrón que ya usamos en RECDAGE. Si el navegador bloquea la ventana
+// emergente, se usa un iframe oculto como respaldo.
+function printSmart(){
+  if(!isStandaloneMode()){ window.print(); return; }
+
+  const clone = document.documentElement.cloneNode(true);
+  clone.querySelectorAll('script').forEach(s=>s.remove());
+  const autoPrint = document.createElement('script');
+  autoPrint.textContent = 'window.onload=function(){window.print();};';
+  (clone.querySelector('body')||clone).appendChild(autoPrint);
+
+  const html = '<!DOCTYPE html>' + clone.outerHTML;
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+
+  const w = window.open(url, '_blank');
+  if(!w){
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:0';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try{ iframe.contentWindow.print(); }catch(e){}
+      setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url); }, 3000);
+    };
+  } else {
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
-  document.getElementById('print-help-url').value = location.href;
-  ov.style.display = 'flex';
-}
-function copyPrintHelpUrl(){
-  const inp = document.getElementById('print-help-url');
-  inp.select();
-  navigator.clipboard?.writeText(inp.value).then(()=>toast('✅ Enlace copiado','ok')).catch(()=>toast('Selecciona y copia el enlace manualmente','warn'));
+
+  document.body.classList.remove('print-resumen');
 }
 
 // Nombres de hoja de Excel: máx 31 caracteres, sin \ / ? * [ ] : y sin repetirse.
