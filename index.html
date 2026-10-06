@@ -505,6 +505,7 @@ const KNOWN_SHEETS = {
   'MONTAJE ARMARIO COM' : '1352804350',
   'FUSIONADO CTS'       : '436573929',
   'FUSIONADO GONVARRI'  : '211912954',
+  'ENSAYOS'             : '489115923',
 };
 
 // Columnas que se tratan como ESTADO para colorear (autodetectadas)
@@ -1268,6 +1269,13 @@ const RESUMEN_SHEETS = {
     calc:'elemento',
     hEstado:'ESTADO', hElemento:'ELEMENTO',
   },
+  'ENSAYOS': {
+    calc:'ensayo',
+    pairs: [
+      {hEstado:'ESTADO PP1', hFecha:'FECHA PP1'},
+      {hEstado:'ESTADO PP2', hFecha:'FECHA PP2'},
+    ],
+  },
 };
 
 function colIdx(headers, name){ return name ? headers.indexOf(name) : -1; }
@@ -1316,12 +1324,41 @@ function calcElemento(cfg, headers, rows){
   return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
 }
 
-function computeResumenSheetEuros(sheetName, headers, rows){
+// Una fila de ENSAYOS puede tener hasta 2 ensayos (PP1/PP2), cada uno con su
+// propio estado y fecha — se cuentan por separado, solo los REALIZADOS cuya
+// fecha cae dentro del rango pedido (o sin estado si se filtra "Pendiente").
+function calcEnsayo(cfg, headers, rows, range){
+  const {fromMs, toMs, esPendiente} = range || {};
+  let count = 0;
+  rows.forEach(row=>{
+    cfg.pairs.forEach(({hEstado, hFecha})=>{
+      const cE = colIdx(headers, hEstado), cF = colIdx(headers, hFecha);
+      if(cE < 0) return;
+      const estadoVal = String(row[cE]||'').trim();
+      const ok = STATUS_MAP[estadoVal.toUpperCase()] === 'green';
+      if(esPendiente){
+        if(!ok && !estadoVal) count++;
+        return;
+      }
+      if(!ok) return;
+      const d = cF>=0 ? resParseDate(row[cF]) : null;
+      if(!d) return;
+      const ms = resDateMs(d);
+      if(ms>=fromMs && ms<=toMs) count++;
+    });
+  });
+  const out=[];
+  if(count) out.push({label:PRICE_LIST.ensayo.label, detail:`${count} × ${PRICE_LIST.ensayo.price}€`, total:count*PRICE_LIST.ensayo.price});
+  return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
+}
+
+function computeResumenSheetEuros(sheetName, headers, rows, range){
   const cfg = RESUMEN_SHEETS[sheetName];
   if(!cfg) return {rows:[], totalEuros:0};
   if(cfg.calc==='montajeCT')   return calcMontajeCT(cfg, headers, rows);
   if(cfg.calc==='fusionadoCT') return calcFusionadoCT(cfg, headers, rows);
   if(cfg.calc==='elemento')    return calcElemento(cfg, headers, rows);
+  if(cfg.calc==='ensayo')      return calcEnsayo(cfg, headers, rows, range);
   return {rows:[], totalEuros:0};
 }
 
@@ -1505,7 +1542,7 @@ function runResumen(){
       });
     }
 
-    if(matched.length) results.push({sheet:sheetName, headers:data.h, rows:matched, dateCols});
+    if(matched.length) results.push({sheet:sheetName, headers:data.h, rows:matched, dateCols, fromMs, toMs, esPendiente});
   }
 
   const estadoLabel = estadoFilter === '__ALL__' ? '' :
@@ -1604,8 +1641,8 @@ function renderValorizacionResults(results, label){
   const cont      = document.getElementById('res-results');
   const actionBar = document.getElementById('res-action-bar');
 
-  const priced = results.map(({sheet, headers, rows})=>({
-    sheet, headers, rows, ...computeResumenSheetEuros(sheet, headers, rows)
+  const priced = results.map(({sheet, headers, rows, fromMs, toMs, esPendiente})=>({
+    sheet, headers, rows, ...computeResumenSheetEuros(sheet, headers, rows, {fromMs, toMs, esPendiente})
   })).filter(r=>r.rows.length);
 
   if(!priced.length){
