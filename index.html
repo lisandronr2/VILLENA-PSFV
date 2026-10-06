@@ -1269,12 +1269,18 @@ const RESUMEN_SHEETS = {
     calc:'elemento',
     hEstado:'ESTADO', hElemento:'ELEMENTO',
   },
+  // Cada CT exige 1 o 2 puntos de prueba (PP) según CANT PP. Cada PP
+  // completado equivale a 24 ensayos individuales (mismo criterio que
+  // RECDAVI, donde se registran).
   'ENSAYOS': {
     calc:'ensayo',
+    hCantPP:'CANT PP',
     pairs: [
       {hEstado:'ESTADO PP1', hFecha:'FECHA PP1'},
       {hEstado:'ESTADO PP2', hFecha:'FECHA PP2'},
     ],
+    ensayosPorPP: 24,
+    precioEnsayo: 7.5,
   },
 };
 
@@ -1329,26 +1335,31 @@ function calcElemento(cfg, headers, rows){
 // fecha cae dentro del rango pedido (o sin estado si se filtra "Pendiente").
 function calcEnsayo(cfg, headers, rows, range){
   const {fromMs, toMs, esPendiente} = range || {};
-  let count = 0;
+  const cCantPP = colIdx(headers, cfg.hCantPP);
+  let ppCount = 0;
   rows.forEach(row=>{
-    cfg.pairs.forEach(({hEstado, hFecha})=>{
+    const need = cCantPP>=0 ? (parseInt(row[cCantPP],10)||1) : cfg.pairs.length;
+    cfg.pairs.slice(0, Math.min(need, cfg.pairs.length)).forEach(({hEstado, hFecha})=>{
       const cE = colIdx(headers, hEstado), cF = colIdx(headers, hFecha);
       if(cE < 0) return;
       const estadoVal = String(row[cE]||'').trim();
       const ok = STATUS_MAP[estadoVal.toUpperCase()] === 'green';
       if(esPendiente){
-        if(!ok && !estadoVal) count++;
+        if(!ok && !estadoVal) ppCount++;
         return;
       }
       if(!ok) return;
       const d = cF>=0 ? resParseDate(row[cF]) : null;
       if(!d) return;
       const ms = resDateMs(d);
-      if(ms>=fromMs && ms<=toMs) count++;
+      if(ms>=fromMs && ms<=toMs) ppCount++;
     });
   });
   const out=[];
-  if(count) out.push({label:PRICE_LIST.ensayo.label, detail:`${count} × ${PRICE_LIST.ensayo.price}€`, total:count*PRICE_LIST.ensayo.price});
+  if(ppCount){
+    const ensayos = ppCount * cfg.ensayosPorPP;
+    out.push({label:PRICE_LIST.ensayo.label, detail:`${ppCount} PP × ${cfg.ensayosPorPP} ensayos = ${ensayos} × ${cfg.precioEnsayo}€`, total: ensayos*cfg.precioEnsayo});
+  }
   return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
 }
 
