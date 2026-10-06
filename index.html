@@ -1333,7 +1333,9 @@ function calcElemento(cfg, headers, rows){
 // Una fila de ENSAYOS puede tener hasta 2 ensayos (PP1/PP2), cada uno con su
 // propio estado y fecha — se cuentan por separado, solo los REALIZADOS cuya
 // fecha cae dentro del rango pedido (o sin estado si se filtra "Pendiente").
-function calcEnsayo(cfg, headers, rows, range){
+// Se usa tanto para la valorización (calcEnsayo) como para el chip "Ensayos
+// realizados" del resumen de producción.
+function countEnsayoPPs(cfg, headers, rows, range){
   const {fromMs, toMs, esPendiente} = range || {};
   const cCantPP = colIdx(headers, cfg.hCantPP);
   let ppCount = 0;
@@ -1355,6 +1357,11 @@ function calcEnsayo(cfg, headers, rows, range){
       if(ms>=fromMs && ms<=toMs) ppCount++;
     });
   });
+  return ppCount;
+}
+
+function calcEnsayo(cfg, headers, rows, range){
+  const ppCount = countEnsayoPPs(cfg, headers, rows, range);
   const out=[];
   if(ppCount){
     const ensayos = ppCount * cfg.ensayosPorPP;
@@ -1605,7 +1612,7 @@ function renderResumenResults(results, label){
     return;
   }
 
-  const processedSheets = results.map(({sheet, headers, rows, dateCols})=>{
+  const processedSheets = results.map(({sheet, headers, rows, dateCols, fromMs, toMs, esPendiente})=>{
     const sortedRows = [...rows].sort((a,b)=>{
       for(const ci of dateCols){
         const da = resParseDate(a[ci]), db = resParseDate(b[ci]);
@@ -1613,7 +1620,7 @@ function renderResumenResults(results, label){
       }
       return 0;
     });
-    return {sheet, headers, sortedRows, dateCols};
+    return {sheet, headers, sortedRows, dateCols, fromMs, toMs, esPendiente};
   });
 
   lastResults = {mode:'produccion', label, sheets: processedSheets};
@@ -1622,10 +1629,17 @@ function renderResumenResults(results, label){
   const totalRows = processedSheets.reduce((s,r)=>s + r.sortedRows.length, 0);
   sumEl.innerHTML = `<span class="itag">${esc(label)}</span> &nbsp;${processedSheets.length} hoja${processedSheets.length>1?'s':''} &nbsp;·&nbsp; ${totalRows} registro${totalRows>1?'s':''}`;
 
-  const sheetsHtml = processedSheets.map(({sheet, headers, sortedRows, dateCols})=>{
+  const sheetsHtml = processedSheets.map(({sheet, headers, sortedRows, dateCols, fromMs, toMs, esPendiente})=>{
     let tbl = `<div class="res-sheet-group">`;
     tbl += `<div class="res-sheet-hdr"><span class="itag">${esc(sheet)}</span><span class="rcount">${sortedRows.length} registro${sortedRows.length>1?'s':''}</span></div>`;
-    tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows)}</div>`;
+    let extraStat = '';
+    if(sheet === 'ENSAYOS' && RESUMEN_SHEETS['ENSAYOS']){
+      const ecfg = RESUMEN_SHEETS['ENSAYOS'];
+      const ppCount = countEnsayoPPs(ecfg, headers, sortedRows, {fromMs, toMs, esPendiente});
+      const ensayos = ppCount * ecfg.ensayosPorPP;
+      extraStat = `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Ensayos realizados</div><div class="res-stat-val">${ensayos.toLocaleString('es-ES')}</div></div>`;
+    }
+    tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows)}${extraStat}</div>`;
     tbl += `<div class="res-twrap"><table><thead><tr>`;
     headers.forEach((col,i)=>{ tbl += `<th${dateCols.includes(i)?' class="date-col"':''}>${esc(col||'')}</th>`; });
     tbl += `</tr></thead><tbody>`;
