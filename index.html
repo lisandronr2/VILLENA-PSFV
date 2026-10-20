@@ -1308,11 +1308,18 @@ function isRealizadoRow(row, idx){
 // viven en la misma hoja del Sheet (mismo criterio que RECDAVI, donde se
 // registran en dos pasos distintos).
 // ═══════════════════════════════════════════════
+// Cada PP de GONVARRI equivale a esta cantidad de fusiones (mismo criterio
+// que RECDAVI, donde se registran).
+const GONVARRI_FUSIONES_POR_PP = 8;
+
 const AVANCE_SHEETS = {
   'MONTAJE ARMARIO COM': {kind:'estado', hEstado:'ESTADO', hCt:'ARMARIO CT NUMERO'},
   'FUSIONADO CTS':        {kind:'estado', hEstado:'ESTADO FUSIONADO', hCt:'CT NUMERO'},
-  'FUSIONADO GONVARRI':   {kind:'gonvarriPP', hCantPP:'CANT. PP', hPPFusionados:'PP. FUSIONADOS', hCt:'CT', hElemento:'ELEMENTO'},
-  'ENSAYOS GONVARRI':     {kind:'gonvarriEnsayos', sourceSheet:'FUSIONADO GONVARRI', hTotalFusiones:'TOTAL FUSIONES', hEnsayosRealizados:'ENSAYOS REALIZADOS', hCt:'CT', hElemento:'ELEMENTO'},
+  // El 100% de ambos conceptos es el mismo objetivo: suma(CANT. PP) × 8
+  // fusiones. "Fusiones" avanza con TOTAL FUSIONES y "Ensayos" con ENSAYOS
+  // REALIZADOS, ambos sobre ese mismo total — no por fila/elemento completo.
+  'FUSIONADO GONVARRI':   {kind:'gonvarriPP', hCantPP:'CANT. PP', hPPFusionados:'PP. FUSIONADOS', hTotalFusiones:'TOTAL FUSIONES', hCt:'CT', hElemento:'ELEMENTO', unidad:'fusiones'},
+  'ENSAYOS GONVARRI':     {kind:'gonvarriEnsayos', sourceSheet:'FUSIONADO GONVARRI', hCantPP:'CANT. PP', hTotalFusiones:'TOTAL FUSIONES', hEnsayosRealizados:'ENSAYOS REALIZADOS', hCt:'CT', hElemento:'ELEMENTO', unidad:'ensayos'},
   'ENSAYOS':              {kind:'ensayoPP', hCantPP:'CANT PP', pairs:[{hEstado:'ESTADO PP1'},{hEstado:'ESTADO PP2'}], hCt:'CT NUMERO'},
 };
 
@@ -1342,6 +1349,18 @@ function avanceRowDone(cfg, headers, row){
 }
 
 function avanceTally(cfg, headers, rows){
+  // FUSIONADO GONVARRI / ENSAYOS GONVARRI: el 100% es el objetivo en
+  // fusiones (suma de CANT. PP × 8), no un conteo de filas/elementos.
+  if(cfg.kind==='gonvarriPP' || cfg.kind==='gonvarriEnsayos'){
+    const cCantPP = colIdx(headers, cfg.hCantPP);
+    const cValor = colIdx(headers, cfg.kind==='gonvarriPP' ? cfg.hTotalFusiones : cfg.hEnsayosRealizados);
+    let total=0, done=0;
+    rows.forEach(row=>{
+      total += (parseFloat(row[cCantPP])||0) * GONVARRI_FUSIONES_POR_PP;
+      done  += parseFloat(row[cValor])||0;
+    });
+    return {done, total};
+  }
   let done=0, total=0;
   rows.forEach(row=>{
     const d = avanceRowDone(cfg, headers, row);
@@ -1362,6 +1381,10 @@ function avanceForSheet(name, cfg){
 function avanceBar(done, total){
   const pct = total ? Math.round(done/total*100) : 0;
   return {pct, html:`<div class="avance-bar-wrap"><div class="avance-bar${pct===100?' full':''}" style="width:${pct}%"></div></div>`};
+}
+function avanceSubtext(cfg, done, total){
+  if(cfg.unidad) return `${done} / ${total} ${cfg.unidad}`;
+  return `${done} / ${total} completado${done===1?'':'s'}`;
 }
 
 // Navegación simple dentro del overlay: sheets → CTs → elementos.
@@ -1410,7 +1433,7 @@ function renderAvancesSheets(){
     const {pct, html} = avanceBar(r.done, r.total);
     return `<div class="avance-item avance-clickable" onclick='avancesGoto({view:"cts",sheetName:${JSON.stringify(name)}})'>
       <div class="avance-item-top">
-        <div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">${r.done} / ${r.total} completado${r.done===1?'':'s'}</div></div>
+        <div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">${esc(avanceSubtext(cfg, r.done, r.total))}</div></div>
         <div class="avance-item-pct">${pct}%</div>
       </div>
       ${html}
@@ -1440,7 +1463,7 @@ function renderAvancesCts(sheetName){
     const onclick = clickable ? ` onclick='avancesGoto({view:"elementos",sheetName:${JSON.stringify(sheetName)},ctValue:${JSON.stringify(ct)}})'` : '';
     return `<div class="avance-item${clickable?' avance-clickable':''}"${onclick}>
       <div class="avance-item-top">
-        <div><div class="avance-item-name">CT ${esc(ct)}</div><div class="avance-item-sub">${done} / ${total} completado${done===1?'':'s'}</div></div>
+        <div><div class="avance-item-name">CT ${esc(ct)}</div><div class="avance-item-sub">${esc(avanceSubtext(cfg, done, total))}</div></div>
         <div class="avance-item-pct">${pct}%</div>
       </div>
       ${html}
