@@ -260,6 +260,17 @@ tr:last-child td{border-bottom:none}
   display:flex;justify-content:space-between;align-items:center
 }
 
+/* ── % AVANCES OVERLAY ── */
+.avances-list{padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1;-webkit-overflow-scrolling:touch}
+.avance-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.avance-item-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.avance-item-name{font-size:14px;font-weight:700;color:var(--text)}
+.avance-item-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.avance-item-pct{font-size:18px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;flex-shrink:0}
+.avance-bar-wrap{height:8px;border-radius:99px;background:var(--surface);border:1px solid var(--border);overflow:hidden}
+.avance-bar{height:100%;background:var(--blue);border-radius:99px;transition:width .4s ease}
+.avance-bar.full{background:#1b7a4a}
+
 /* ── RESUMEN ACTION BAR ── */
 .res-action-bar{
   display:flex;align-items:center;gap:8px;padding:7px 14px;
@@ -372,6 +383,7 @@ tr:last-child td{border-bottom:none}
     <button class="btn-h" id="btn-sync" onclick="syncNow(true)" title="Sincronizar ahora">↻ Sync</button>
     <button class="btn-h" onclick="printMain()" title="Imprimir / Exportar PDF">🖨 PDF</button>
     <button class="btn-h" onclick="downloadExcelMain()" title="Exportar a Excel">📥 Excel</button>
+    <button class="btn-h" onclick="openAvances()" title="% Avances por hoja">📊 % Avances</button>
     <button class="btn-h" onclick="openResumen()" title="Resumen de producción / valorización">📅 Resumen</button>
     <button class="btn-h" id="btn-theme" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
   </div>
@@ -482,6 +494,21 @@ tr:last-child td{border-bottom:none}
       <div class="ico">📅</div>
       <h3>Buscar por fecha</h3>
       <p>Elige el <strong>tipo de resumen</strong> (producción o valorización en €), el periodo y pulsa <strong>Buscar</strong> para ver todos los trabajos realizados.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── % AVANCES OVERLAY ── -->
+<div class="resumen-overlay" id="avances-overlay">
+  <div class="res-hdr">
+    <div class="res-hdr-ico">📊</div>
+    <div class="res-hdr-title">% AVANCES POR HOJA</div>
+    <button class="res-hdr-close" onclick="closeAvances()">✕ Cerrar</button>
+  </div>
+  <div class="avances-list" id="avances-list">
+    <div class="state">
+      <div class="spin-ring"></div>
+      <h3>Calculando…</h3>
     </div>
   </div>
 </div>
@@ -1270,6 +1297,83 @@ function colIdx(headers, name){ return name ? headers.indexOf(name) : -1; }
 function isRealizadoRow(row, idx){
   if(idx<0) return true;
   return STATUS_MAP[String(row[idx]||'').toUpperCase().trim()]==='green';
+}
+
+// ═══════════════════════════════════════════════
+// % AVANCES — progreso de cada hoja (independiente del resumen por fecha)
+// FUSIONADO GONVARRI y ENSAYOS GONVARRI se muestran por separado aunque
+// viven en la misma hoja del Sheet (mismo criterio que RECDAVI, donde se
+// registran en dos pasos distintos).
+// ═══════════════════════════════════════════════
+const AVANCE_SHEETS = {
+  'MONTAJE ARMARIO COM': {kind:'estado', hEstado:'ESTADO'},
+  'FUSIONADO CTS':        {kind:'estado', hEstado:'ESTADO FUSIONADO'},
+  'FUSIONADO GONVARRI':   {kind:'gonvarriPP', hCantPP:'CANT. PP', hPPFusionados:'PP. FUSIONADOS'},
+  'ENSAYOS GONVARRI':     {kind:'gonvarriEnsayos', sourceSheet:'FUSIONADO GONVARRI', hTotalFusiones:'TOTAL FUSIONES', hEnsayosRealizados:'ENSAYOS REALIZADOS'},
+  'ENSAYOS':              {kind:'ensayoPP', hCantPP:'CANT PP', pairs:[{hEstado:'ESTADO PP1'},{hEstado:'ESTADO PP2'}]},
+};
+
+function avanceForSheet(name, cfg){
+  const realSheet = cfg.sourceSheet || name;
+  const data = allData[realSheet];
+  if(!data || !data.h || !data.r) return null;
+  const headers = data.h, rows = data.r;
+
+  if(cfg.kind==='estado'){
+    const cEstado = colIdx(headers, cfg.hEstado);
+    return {done: rows.filter(r=>isRealizadoRow(r, cEstado)).length, total: rows.length};
+  }
+  if(cfg.kind==='gonvarriPP'){
+    const cCantPP = colIdx(headers, cfg.hCantPP), cPP = colIdx(headers, cfg.hPPFusionados);
+    const done = rows.filter(r=>{
+      const raw = r[cPP];
+      if(raw===undefined || raw===null || String(raw).trim()==='') return false;
+      return (parseFloat(raw)||0) >= (parseFloat(r[cCantPP])||0);
+    }).length;
+    return {done, total: rows.length};
+  }
+  if(cfg.kind==='gonvarriEnsayos'){
+    const cTotal = colIdx(headers, cfg.hTotalFusiones), cEnsayos = colIdx(headers, cfg.hEnsayosRealizados);
+    const elegibles = rows.filter(r=>(parseFloat(r[cTotal])||0) > 0);
+    const done = elegibles.filter(r=>{
+      const v = r[cEnsayos];
+      return v!==undefined && v!==null && String(v).trim()!=='';
+    }).length;
+    return {done, total: elegibles.length};
+  }
+  if(cfg.kind==='ensayoPP'){
+    const cCantPP = colIdx(headers, cfg.hCantPP);
+    const done = rows.filter(r=>{
+      const need = (parseInt(r[cCantPP],10)||1) >= 2 ? 2 : 1;
+      return cfg.pairs.slice(0, need).every(p=>isRealizadoRow(r, colIdx(headers, p.hEstado)));
+    }).length;
+    return {done, total: rows.length};
+  }
+  return null;
+}
+
+function openAvances(){
+  document.getElementById('avances-overlay').classList.add('show');
+  renderAvances();
+}
+function closeAvances(){
+  document.getElementById('avances-overlay').classList.remove('show');
+}
+function renderAvances(){
+  const cont = document.getElementById('avances-list');
+  const items = Object.entries(AVANCE_SHEETS).map(([name,cfg])=>{
+    const r = avanceForSheet(name, cfg);
+    if(!r) return `<div class="avance-item"><div class="avance-item-top"><div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">Sin datos cargados</div></div></div></div>`;
+    const pct = r.total ? Math.round(r.done/r.total*100) : 0;
+    return `<div class="avance-item">
+      <div class="avance-item-top">
+        <div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">${r.done} / ${r.total} completado${r.done===1?'':'s'}</div></div>
+        <div class="avance-item-pct">${pct}%</div>
+      </div>
+      <div class="avance-bar-wrap"><div class="avance-bar${pct===100?' full':''}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  cont.innerHTML = items;
 }
 
 function calcMontajeCT(cfg, headers, rows){
