@@ -185,11 +185,11 @@ tr:last-child td{border-bottom:none}
   box-shadow:0 2px 10px rgba(0,0,0,.3)
 }
 .res-hdr-ico{font-size:20px;flex-shrink:0}
-.res-hdr-title{font-size:15px;font-weight:700;flex:1}
+.res-hdr-title{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .res-hdr-close{
   padding:5px 13px;background:rgba(255,255,255,.15);
   color:#fff;border:1px solid rgba(255,255,255,.3);
-  border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap
+  border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0
 }
 .res-hdr-close:hover{background:rgba(255,255,255,.27)}
 .res-ctrl{
@@ -263,6 +263,8 @@ tr:last-child td{border-bottom:none}
 /* ── % AVANCES OVERLAY ── */
 .avances-list{padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;flex:1;-webkit-overflow-scrolling:touch}
 .avance-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.avance-item.avance-clickable{cursor:pointer;transition:background .12s,border-color .12s}
+.avance-item.avance-clickable:hover{background:var(--card2);border-color:var(--blue)}
 .avance-item-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
 .avance-item-name{font-size:14px;font-weight:700;color:var(--text)}
 .avance-item-sub{font-size:11px;color:var(--t3);margin-top:2px}
@@ -501,8 +503,9 @@ tr:last-child td{border-bottom:none}
 <!-- ── % AVANCES OVERLAY ── -->
 <div class="resumen-overlay" id="avances-overlay">
   <div class="res-hdr">
+    <button class="res-hdr-close" id="avances-back" onclick="avancesBack()" style="display:none">← Atrás</button>
     <div class="res-hdr-ico">📊</div>
-    <div class="res-hdr-title">% AVANCES POR HOJA</div>
+    <div class="res-hdr-title" id="avances-title">% AVANCES POR HOJA</div>
     <button class="res-hdr-close" onclick="closeAvances()">✕ Cerrar</button>
   </div>
   <div class="avances-list" id="avances-list">
@@ -1306,74 +1309,168 @@ function isRealizadoRow(row, idx){
 // registran en dos pasos distintos).
 // ═══════════════════════════════════════════════
 const AVANCE_SHEETS = {
-  'MONTAJE ARMARIO COM': {kind:'estado', hEstado:'ESTADO'},
-  'FUSIONADO CTS':        {kind:'estado', hEstado:'ESTADO FUSIONADO'},
-  'FUSIONADO GONVARRI':   {kind:'gonvarriPP', hCantPP:'CANT. PP', hPPFusionados:'PP. FUSIONADOS'},
-  'ENSAYOS GONVARRI':     {kind:'gonvarriEnsayos', sourceSheet:'FUSIONADO GONVARRI', hTotalFusiones:'TOTAL FUSIONES', hEnsayosRealizados:'ENSAYOS REALIZADOS'},
-  'ENSAYOS':              {kind:'ensayoPP', hCantPP:'CANT PP', pairs:[{hEstado:'ESTADO PP1'},{hEstado:'ESTADO PP2'}]},
+  'MONTAJE ARMARIO COM': {kind:'estado', hEstado:'ESTADO', hCt:'ARMARIO CT NUMERO'},
+  'FUSIONADO CTS':        {kind:'estado', hEstado:'ESTADO FUSIONADO', hCt:'CT NUMERO'},
+  'FUSIONADO GONVARRI':   {kind:'gonvarriPP', hCantPP:'CANT. PP', hPPFusionados:'PP. FUSIONADOS', hCt:'CT', hElemento:'ELEMENTO'},
+  'ENSAYOS GONVARRI':     {kind:'gonvarriEnsayos', sourceSheet:'FUSIONADO GONVARRI', hTotalFusiones:'TOTAL FUSIONES', hEnsayosRealizados:'ENSAYOS REALIZADOS', hCt:'CT', hElemento:'ELEMENTO'},
+  'ENSAYOS':              {kind:'ensayoPP', hCantPP:'CANT PP', pairs:[{hEstado:'ESTADO PP1'},{hEstado:'ESTADO PP2'}], hCt:'CT NUMERO'},
 };
+
+// Estado de una fila individual: true=completo, false=pendiente,
+// null=no elegible (no cuenta ni en el numerador ni en el denominador —
+// p.ej. un elemento de GONVARRI sin fusiones aún no puede tener ensayo).
+function avanceRowDone(cfg, headers, row){
+  if(cfg.kind==='estado'){
+    return isRealizadoRow(row, colIdx(headers, cfg.hEstado));
+  }
+  if(cfg.kind==='gonvarriPP'){
+    const raw = row[colIdx(headers, cfg.hPPFusionados)];
+    if(raw===undefined || raw===null || String(raw).trim()==='') return false;
+    return (parseFloat(raw)||0) >= (parseFloat(row[colIdx(headers, cfg.hCantPP)])||0);
+  }
+  if(cfg.kind==='gonvarriEnsayos'){
+    if((parseFloat(row[colIdx(headers, cfg.hTotalFusiones)])||0) <= 0) return null;
+    const v = row[colIdx(headers, cfg.hEnsayosRealizados)];
+    return v!==undefined && v!==null && String(v).trim()!=='';
+  }
+  if(cfg.kind==='ensayoPP'){
+    const cCantPP = colIdx(headers, cfg.hCantPP);
+    const need = (parseInt(row[cCantPP],10)||1) >= 2 ? 2 : 1;
+    return cfg.pairs.slice(0, need).every(p=>isRealizadoRow(row, colIdx(headers, p.hEstado)));
+  }
+  return false;
+}
+
+function avanceTally(cfg, headers, rows){
+  let done=0, total=0;
+  rows.forEach(row=>{
+    const d = avanceRowDone(cfg, headers, row);
+    if(d===null) return;
+    total++;
+    if(d) done++;
+  });
+  return {done, total};
+}
 
 function avanceForSheet(name, cfg){
   const realSheet = cfg.sourceSheet || name;
   const data = allData[realSheet];
   if(!data || !data.h || !data.r) return null;
-  const headers = data.h, rows = data.r;
-
-  if(cfg.kind==='estado'){
-    const cEstado = colIdx(headers, cfg.hEstado);
-    return {done: rows.filter(r=>isRealizadoRow(r, cEstado)).length, total: rows.length};
-  }
-  if(cfg.kind==='gonvarriPP'){
-    const cCantPP = colIdx(headers, cfg.hCantPP), cPP = colIdx(headers, cfg.hPPFusionados);
-    const done = rows.filter(r=>{
-      const raw = r[cPP];
-      if(raw===undefined || raw===null || String(raw).trim()==='') return false;
-      return (parseFloat(raw)||0) >= (parseFloat(r[cCantPP])||0);
-    }).length;
-    return {done, total: rows.length};
-  }
-  if(cfg.kind==='gonvarriEnsayos'){
-    const cTotal = colIdx(headers, cfg.hTotalFusiones), cEnsayos = colIdx(headers, cfg.hEnsayosRealizados);
-    const elegibles = rows.filter(r=>(parseFloat(r[cTotal])||0) > 0);
-    const done = elegibles.filter(r=>{
-      const v = r[cEnsayos];
-      return v!==undefined && v!==null && String(v).trim()!=='';
-    }).length;
-    return {done, total: elegibles.length};
-  }
-  if(cfg.kind==='ensayoPP'){
-    const cCantPP = colIdx(headers, cfg.hCantPP);
-    const done = rows.filter(r=>{
-      const need = (parseInt(r[cCantPP],10)||1) >= 2 ? 2 : 1;
-      return cfg.pairs.slice(0, need).every(p=>isRealizadoRow(r, colIdx(headers, p.hEstado)));
-    }).length;
-    return {done, total: rows.length};
-  }
-  return null;
+  return avanceTally(cfg, data.h, data.r);
 }
 
+function avanceBar(done, total){
+  const pct = total ? Math.round(done/total*100) : 0;
+  return {pct, html:`<div class="avance-bar-wrap"><div class="avance-bar${pct===100?' full':''}" style="width:${pct}%"></div></div>`};
+}
+
+// Navegación simple dentro del overlay: sheets → CTs → elementos.
+let avanceNav = [];
+let avanceCurrent = {view:'sheets'};
+
 function openAvances(){
+  avanceNav = [];
+  avanceCurrent = {view:'sheets'};
   document.getElementById('avances-overlay').classList.add('show');
   renderAvances();
 }
 function closeAvances(){
   document.getElementById('avances-overlay').classList.remove('show');
 }
+function avancesBack(){
+  avanceCurrent = avanceNav.pop() || {view:'sheets'};
+  renderAvances();
+}
+function avancesGoto(next){
+  avanceNav.push(avanceCurrent);
+  avanceCurrent = next;
+  renderAvances();
+}
+
 function renderAvances(){
+  document.getElementById('avances-back').style.display = avanceNav.length ? '' : 'none';
+  const title = document.getElementById('avances-title');
+  if(avanceCurrent.view==='cts'){
+    title.textContent = `${avanceCurrent.sheetName} · por CT`;
+    renderAvancesCts(avanceCurrent.sheetName);
+  } else if(avanceCurrent.view==='elementos'){
+    title.textContent = `${avanceCurrent.sheetName} · CT ${avanceCurrent.ctValue}`;
+    renderAvancesElementos(avanceCurrent.sheetName, avanceCurrent.ctValue);
+  } else {
+    title.textContent = '% AVANCES POR HOJA';
+    renderAvancesSheets();
+  }
+}
+
+function renderAvancesSheets(){
   const cont = document.getElementById('avances-list');
   const items = Object.entries(AVANCE_SHEETS).map(([name,cfg])=>{
     const r = avanceForSheet(name, cfg);
     if(!r) return `<div class="avance-item"><div class="avance-item-top"><div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">Sin datos cargados</div></div></div></div>`;
-    const pct = r.total ? Math.round(r.done/r.total*100) : 0;
-    return `<div class="avance-item">
+    const {pct, html} = avanceBar(r.done, r.total);
+    return `<div class="avance-item avance-clickable" onclick='avancesGoto({view:"cts",sheetName:${JSON.stringify(name)}})'>
       <div class="avance-item-top">
         <div><div class="avance-item-name">${esc(name)}</div><div class="avance-item-sub">${r.done} / ${r.total} completado${r.done===1?'':'s'}</div></div>
         <div class="avance-item-pct">${pct}%</div>
       </div>
-      <div class="avance-bar-wrap"><div class="avance-bar${pct===100?' full':''}" style="width:${pct}%"></div></div>
+      ${html}
     </div>`;
   }).join('');
   cont.innerHTML = items;
+}
+
+function renderAvancesCts(sheetName){
+  const cfg = AVANCE_SHEETS[sheetName];
+  const realSheet = cfg.sourceSheet || sheetName;
+  const data = allData[realSheet];
+  const cont = document.getElementById('avances-list');
+  if(!data || !data.h || !data.r){ cont.innerHTML = `<div class="state"><div class="ico">📭</div><h3>Sin datos</h3></div>`; return; }
+  const headers = data.h, rows = data.r;
+  const cCt = colIdx(headers, cfg.hCt);
+  const groups = new Map();
+  rows.forEach(row=>{
+    const ct = cCt>=0 && row[cCt] ? row[cCt] : '(sin CT)';
+    if(!groups.has(ct)) groups.set(ct, []);
+    groups.get(ct).push(row);
+  });
+  const clickable = !!cfg.hElemento;
+  const items = [...groups.entries()].map(([ct, groupRows])=>{
+    const {done, total} = avanceTally(cfg, headers, groupRows);
+    const {pct, html} = avanceBar(done, total);
+    const onclick = clickable ? ` onclick='avancesGoto({view:"elementos",sheetName:${JSON.stringify(sheetName)},ctValue:${JSON.stringify(ct)}})'` : '';
+    return `<div class="avance-item${clickable?' avance-clickable':''}"${onclick}>
+      <div class="avance-item-top">
+        <div><div class="avance-item-name">CT ${esc(ct)}</div><div class="avance-item-sub">${done} / ${total} completado${done===1?'':'s'}</div></div>
+        <div class="avance-item-pct">${pct}%</div>
+      </div>
+      ${html}
+    </div>`;
+  }).join('');
+  cont.innerHTML = items || `<div class="state"><div class="ico">📭</div><h3>Sin CTs</h3></div>`;
+}
+
+function renderAvancesElementos(sheetName, ctValue){
+  const cfg = AVANCE_SHEETS[sheetName];
+  const realSheet = cfg.sourceSheet || sheetName;
+  const data = allData[realSheet];
+  const cont = document.getElementById('avances-list');
+  if(!data || !data.h || !data.r){ cont.innerHTML = `<div class="state"><div class="ico">📭</div><h3>Sin datos</h3></div>`; return; }
+  const headers = data.h, rows = data.r;
+  const cCt = colIdx(headers, cfg.hCt), cElemento = colIdx(headers, cfg.hElemento);
+  const items = rows.filter(row=>(row[cCt]||'(sin CT)')===ctValue).map(row=>{
+    const elemento = cElemento>=0 ? (row[cElemento]||'—') : '—';
+    const d = avanceRowDone(cfg, headers, row);
+    const pill = d===null ? `<span class="pill pill-gray">No elegible</span>`
+               : d ? `<span class="pill pill-green">🟢 Completo</span>`
+               : `<span class="pill pill-amber">🟡 Pendiente</span>`;
+    return `<div class="avance-item">
+      <div class="avance-item-top" style="margin-bottom:0">
+        <div class="avance-item-name">${esc(elemento)}</div>
+        ${pill}
+      </div>
+    </div>`;
+  }).join('');
+  cont.innerHTML = items || `<div class="state"><div class="ico">📭</div><h3>Sin elementos</h3></div>`;
 }
 
 function calcMontajeCT(cfg, headers, rows){
