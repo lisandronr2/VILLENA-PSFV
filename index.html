@@ -1220,38 +1220,10 @@ init().catch(console.error);
 const PRICE_LIST = {
   fusionado:   {label:'Fusionado',                    price:10},
   montaje:     {label:'Montaje CT (armario campo)',   price:50},
-  rackIt:      {label:'Instalación Rack IT',          price:50},
   preparacion: {label:'Preparación',                  price:30},
   ensayo:      {label:'Ensayo',                       price:6},
-  armarioRack: {label:'Instalación Armario Rack',     price:180},
-  prepUtp:     {label:'Preparación UTP',               price:25},
 };
 
-// Palabras clave para localizar cada concepto dentro de un texto libre
-// (encabezado de columna o valor de celda). Se buscan en minúsculas y sin
-// acentos, y basta con que el texto CONTENGA la palabra clave (no hace
-// falta que coincida exactamente) — ej. "ensayos" también encuentra "ensayo".
-// El orden importa: las más específicas van primero para no confundir
-// "Preparación UTP" con "Preparación" a secas.
-const PRICE_KEYWORDS = [
-  {kw:'instalacion armario rack', item:'armarioRack'},
-  {kw:'instalacion rack',         item:'rackIt'},
-  {kw:'preparacion utp',          item:'prepUtp'},
-  {kw:'montaje',                  item:'montaje'},
-  {kw:'preparacion',              item:'preparacion'},
-  {kw:'fusion',                   item:'fusionado'},
-  {kw:'ensayo',                   item:'ensayo'},
-];
-
-function normalizeTxt(s){
-  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-}
-function matchPriceKeyword(text){
-  const n = normalizeTxt(text);
-  if(!n) return null;
-  for(const {kw,item} of PRICE_KEYWORDS){ if(n.includes(kw)) return item; }
-  return null;
-}
 
 // Config de valorización por hoja: qué encabezados leer y cómo calcular el
 // importe. Se resuelven por NOMBRE de columna (no por posición), así que
@@ -1265,9 +1237,15 @@ const RESUMEN_SHEETS = {
     calc:'fusionadoCT',
     hEstado:'ESTADO FUSIONADO', hPreparacion:'PREPARACION', hFusiones:'FUSIONES',
   },
+  // FECHA | CT | ELEMENTO | CANT. PP | PP. FUSIONADOS | TOTAL FUSIONES | ENSAYOS REALIZADOS | FECHA ENSAYOS
+  // Dos conceptos independientes, cada uno con su propia columna de fecha
+  // (mismo criterio que RECDAVI, donde se registran).
   'FUSIONADO GONVARRI': {
-    calc:'elemento',
-    hEstado:'ESTADO', hElemento:'ELEMENTO',
+    calc:'gonvarri',
+    hFecha:'FECHA', hTotalFusiones:'TOTAL FUSIONES',
+    hFechaEnsayos:'FECHA ENSAYOS', hEnsayosRealizados:'ENSAYOS REALIZADOS',
+    precioFusion: 11.50,
+    precioEnsayo: 6,
   },
   // Cada CT exige 1 o 2 puntos de prueba (PP) según CANT PP. Cada PP
   // completado equivale a 24 ensayos individuales (mismo criterio que
@@ -1316,17 +1294,34 @@ function calcFusionadoCT(cfg, headers, rows){
   return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
 }
 
-function calcElemento(cfg, headers, rows){
-  const cEstado=colIdx(headers,cfg.hEstado), cElemento=colIdx(headers,cfg.hElemento);
-  const ok = rows.filter(r=>isRealizadoRow(r,cEstado));
-  const counts={};
-  ok.forEach(r=>{
-    const item = cElemento>=0 ? matchPriceKeyword(r[cElemento]) : null;
-    if(item) counts[item]=(counts[item]||0)+1;
+// FUSIONADO GONVARRI tiene dos conceptos independientes en la misma hoja,
+// cada uno con su propia columna de fecha: TOTAL FUSIONES (según FECHA) y
+// ENSAYOS REALIZADOS (según FECHA ENSAYOS). Se filtra cada uno contra su
+// propia fecha para que el total sea fiel al rango pedido.
+function gonvarriTotals(cfg, headers, rows, range){
+  const {fromMs, toMs} = range || {};
+  const cFecha = colIdx(headers, cfg.hFecha), cTotalFusiones = colIdx(headers, cfg.hTotalFusiones);
+  const cFechaEnsayos = colIdx(headers, cfg.hFechaEnsayos), cEnsayosRealizados = colIdx(headers, cfg.hEnsayosRealizados);
+  const inRange = (ci, row) => {
+    if(ci < 0) return false;
+    const d = resParseDate(row[ci]);
+    if(!d) return false;
+    const ms = resDateMs(d);
+    return ms>=fromMs && ms<=toMs;
+  };
+  let totalFusiones = 0, totalEnsayos = 0;
+  rows.forEach(row=>{
+    if(inRange(cFecha, row)) totalFusiones += parseFloat(row[cTotalFusiones])||0;
+    if(inRange(cFechaEnsayos, row)) totalEnsayos += parseFloat(row[cEnsayosRealizados])||0;
   });
-  const out = Object.entries(counts).map(([item,n])=>({
-    label:PRICE_LIST[item].label, detail:`${n} × ${PRICE_LIST[item].price}€`, total:n*PRICE_LIST[item].price
-  }));
+  return {totalFusiones, totalEnsayos};
+}
+
+function calcGonvarri(cfg, headers, rows, range){
+  const {totalFusiones, totalEnsayos} = gonvarriTotals(cfg, headers, rows, range);
+  const out=[];
+  if(totalFusiones) out.push({label:'Fusiones GONVARRI', detail:`${totalFusiones} × ${cfg.precioFusion}€`, total: totalFusiones*cfg.precioFusion});
+  if(totalEnsayos)  out.push({label:'Ensayos GONVARRI',  detail:`${totalEnsayos} × ${cfg.precioEnsayo}€`,  total: totalEnsayos*cfg.precioEnsayo});
   return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
 }
 
@@ -1375,7 +1370,7 @@ function computeResumenSheetEuros(sheetName, headers, rows, range){
   if(!cfg) return {rows:[], totalEuros:0};
   if(cfg.calc==='montajeCT')   return calcMontajeCT(cfg, headers, rows);
   if(cfg.calc==='fusionadoCT') return calcFusionadoCT(cfg, headers, rows);
-  if(cfg.calc==='elemento')    return calcElemento(cfg, headers, rows);
+  if(cfg.calc==='gonvarri')    return calcGonvarri(cfg, headers, rows, range);
   if(cfg.calc==='ensayo')      return calcEnsayo(cfg, headers, rows, range);
   return {rows:[], totalEuros:0};
 }
@@ -1571,7 +1566,11 @@ function runResumen(){
 }
 
 // Columnas que no aportan al resumen de producción (identificadores)
-const RES_STATS_EXCLUDE = new Set(['anillo','fecha']);
+// 'total fusiones' y 'ensayos realizados' (FUSIONADO GONVARRI) se excluyen
+// aquí porque el chip genérico sumaría filas incluidas por CUALQUIERA de
+// las 2 fechas de la hoja sin distinguir cuál — gonvarriTotals() ya calcula
+// ambos filtrando cada uno por su propia columna de fecha (fiel al rango).
+const RES_STATS_EXCLUDE = new Set(['anillo','fecha','total fusiones','ensayos realizados']);
 
 function buildResStats(headers, rows){
   const cntCols=[], numCols=[];
@@ -1638,6 +1637,13 @@ function renderResumenResults(results, label){
       const ppCount = countEnsayoPPs(ecfg, headers, sortedRows, {fromMs, toMs, esPendiente});
       const ensayos = ppCount * ecfg.ensayosPorPP;
       extraStat = `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Ensayos realizados</div><div class="res-stat-val">${ensayos.toLocaleString('es-ES')}</div></div>`;
+    }
+    if(sheet === 'FUSIONADO GONVARRI' && RESUMEN_SHEETS['FUSIONADO GONVARRI']){
+      const gcfg = RESUMEN_SHEETS['FUSIONADO GONVARRI'];
+      const {totalFusiones, totalEnsayos} = gonvarriTotals(gcfg, headers, sortedRows, {fromMs, toMs});
+      extraStat =
+        `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Total fusiones</div><div class="res-stat-val">${totalFusiones.toLocaleString('es-ES')}</div></div>` +
+        `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Ensayos GONVARRI</div><div class="res-stat-val">${totalEnsayos.toLocaleString('es-ES')}</div></div>`;
     }
     tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows)}${extraStat}</div>`;
     tbl += `<div class="res-twrap"><table><thead><tr>`;
