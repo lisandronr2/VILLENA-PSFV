@@ -1795,11 +1795,22 @@ function runResumen(){
 // las 2 fechas de la hoja sin distinguir cuál — gonvarriTotals() ya calcula
 // ambos filtrando cada uno por su propia columna de fecha (fiel al rango).
 const RES_STATS_EXCLUDE = new Set(['anillo','fecha','total fusiones','ensayos realizados']);
+// Columnas de identificador de CT (varían de nombre según la hoja): nunca se
+// suman como cantidad — "CT 1 + CT 2 + ..." no significa nada. En su lugar
+// se cuenta cuántos CT ÚNICOS hay (cada CT cuenta una sola vez, aunque tenga
+// varias filas/elementos debajo, como en FUSIONADO GONVARRI).
+const CT_COL_NAMES = new Set(['ct','ct numero','armario ct numero']);
 
 function buildResStats(headers, rows){
   const cntCols=[], numCols=[];
+  let ctStat = null;
   headers.forEach((name,i)=>{
     const lc=(name||'').toLowerCase().trim();
+    if(CT_COL_NAMES.has(lc)){
+      const vals = rows.map(r=>r[i]??'').filter(v=>v!=='');
+      ctStat = new Set(vals).size;
+      return;
+    }
     if(RES_STATS_EXCLUDE.has(lc)) return;
     if(isStatusCol(name)) return;
     const vals = rows.map(r=>r[i]??'').filter(v=>v!=='');
@@ -1811,6 +1822,7 @@ function buildResStats(headers, rows){
     }
   });
   const chips=[];
+  if(ctStat!==null) chips.push(`<div class="res-stat"><div class="res-stat-lbl">CTs</div><div class="res-stat-val">${ctStat}</div></div>`);
   numCols.slice(0,4).forEach(({name,nums})=>{
     const s = nums.reduce((a,b)=>a+b,0);
     const fmt = s%1===0 ? s.toLocaleString('es-ES') : s.toFixed(1);
