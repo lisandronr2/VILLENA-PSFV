@@ -1272,7 +1272,7 @@ const RESUMEN_SHEETS = {
   // (mismo criterio que RECDAVI, donde se registran).
   'FUSIONADO GONVARRI': {
     calc:'gonvarri',
-    hFecha:'FECHA', hTotalFusiones:'TOTAL FUSIONES',
+    hFecha:'FECHA', hTotalFusiones:'TOTAL FUSIONES', hPreparacion:'PREPARACION',
     hFechaEnsayos:'FECHA ENSAYOS', hEnsayosRealizados:'ENSAYOS REALIZADOS',
     precioFusion: 11.50,
     precioEnsayo: 6,
@@ -1525,6 +1525,7 @@ function calcFusionadoCT(cfg, headers, rows){
 function gonvarriTotals(cfg, headers, rows, range){
   const {fromMs, toMs} = range || {};
   const cFecha = colIdx(headers, cfg.hFecha), cTotalFusiones = colIdx(headers, cfg.hTotalFusiones);
+  const cPreparacion = colIdx(headers, cfg.hPreparacion);
   const cFechaEnsayos = colIdx(headers, cfg.hFechaEnsayos), cEnsayosRealizados = colIdx(headers, cfg.hEnsayosRealizados);
   const inRange = (ci, row) => {
     if(ci < 0) return false;
@@ -1533,18 +1534,24 @@ function gonvarriTotals(cfg, headers, rows, range){
     const ms = resDateMs(d);
     return ms>=fromMs && ms<=toMs;
   };
-  let totalFusiones = 0, totalEnsayos = 0;
+  let totalFusiones = 0, totalPrep = 0, totalEnsayos = 0;
   rows.forEach(row=>{
-    if(inRange(cFecha, row)) totalFusiones += parseFloat(row[cTotalFusiones])||0;
+    // La preparación se registra junto con PP. Fusionados, así que usa la
+    // misma columna de fecha (FECHA) que las fusiones.
+    if(inRange(cFecha, row)){
+      totalFusiones += parseFloat(row[cTotalFusiones])||0;
+      totalPrep += parseFloat(row[cPreparacion])||0;
+    }
     if(inRange(cFechaEnsayos, row)) totalEnsayos += parseFloat(row[cEnsayosRealizados])||0;
   });
-  return {totalFusiones, totalEnsayos};
+  return {totalFusiones, totalPrep, totalEnsayos};
 }
 
 function calcGonvarri(cfg, headers, rows, range){
-  const {totalFusiones, totalEnsayos} = gonvarriTotals(cfg, headers, rows, range);
+  const {totalFusiones, totalPrep, totalEnsayos} = gonvarriTotals(cfg, headers, rows, range);
   const out=[];
   if(totalFusiones) out.push({label:'Fusiones GONVARRI', detail:`${totalFusiones} × ${cfg.precioFusion}€`, total: totalFusiones*cfg.precioFusion});
+  if(totalPrep)     out.push({label:PRICE_LIST.preparacion.label, detail:`${totalPrep} × ${PRICE_LIST.preparacion.price}€`, total: totalPrep*PRICE_LIST.preparacion.price});
   if(totalEnsayos)  out.push({label:'Ensayos GONVARRI',  detail:`${totalEnsayos} × ${cfg.precioEnsayo}€`,  total: totalEnsayos*cfg.precioEnsayo});
   return {rows:out, totalEuros: out.reduce((s,r)=>s+r.total,0)};
 }
@@ -1801,7 +1808,7 @@ const RES_STATS_EXCLUDE = new Set(['anillo','fecha','total fusiones','ensayos re
 // varias filas/elementos debajo, como en FUSIONADO GONVARRI).
 const CT_COL_NAMES = new Set(['ct','ct numero','armario ct numero']);
 
-function buildResStats(headers, rows){
+function buildResStats(headers, rows, extraExclude){
   const cntCols=[], numCols=[];
   let ctStat = null;
   headers.forEach((name,i)=>{
@@ -1812,6 +1819,7 @@ function buildResStats(headers, rows){
       return;
     }
     if(RES_STATS_EXCLUDE.has(lc)) return;
+    if(extraExclude && extraExclude.includes(lc)) return;
     if(isStatusCol(name)) return;
     const vals = rows.map(r=>r[i]??'').filter(v=>v!=='');
     const nums = vals.map(v=>parseFloat(v)).filter((n,idx)=>!isNaN(n) && !/\//.test(vals[idx]));
@@ -1876,12 +1884,14 @@ function renderResumenResults(results, label){
     }
     if(sheet === 'FUSIONADO GONVARRI' && RESUMEN_SHEETS['FUSIONADO GONVARRI']){
       const gcfg = RESUMEN_SHEETS['FUSIONADO GONVARRI'];
-      const {totalFusiones, totalEnsayos} = gonvarriTotals(gcfg, headers, sortedRows, {fromMs, toMs});
+      const {totalFusiones, totalPrep, totalEnsayos} = gonvarriTotals(gcfg, headers, sortedRows, {fromMs, toMs});
       extraStat =
         `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Total fusiones</div><div class="res-stat-val">${totalFusiones.toLocaleString('es-ES')}</div></div>` +
+        `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Preparaciones</div><div class="res-stat-val">${totalPrep.toLocaleString('es-ES')}</div></div>` +
         `<div class="res-stat res-stat-total"><div class="res-stat-lbl">Ensayos GONVARRI</div><div class="res-stat-val">${totalEnsayos.toLocaleString('es-ES')}</div></div>`;
     }
-    tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows)}${extraStat}</div>`;
+    const statsExclude = sheet === 'FUSIONADO GONVARRI' ? ['preparacion'] : null;
+    tbl += `<div class="res-stats-strip">${buildResStats(headers, sortedRows, statsExclude)}${extraStat}</div>`;
     tbl += `<div class="res-twrap"><table><thead><tr>`;
     headers.forEach((col,i)=>{ tbl += `<th${dateCols.includes(i)?' class="date-col"':''}>${esc(col||'')}</th>`; });
     tbl += `</tr></thead><tbody>`;
