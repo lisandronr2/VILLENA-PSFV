@@ -410,6 +410,14 @@ tr:last-child td{border-bottom:none}
       <option value="">— Elige columna —</option>
     </select>
   </div>
+  <div class="ctrl" id="ctrl-estado" style="display:none">
+    <label>Estado</label>
+    <select id="sel-estado" onchange="onEstado()">
+      <option value="">Todos</option>
+      <option value="done">Realizado</option>
+      <option value="pending">No realizado</option>
+    </select>
+  </div>
   <button class="btn-rst" id="btn-rst" onclick="resetAll()" style="display:none">✕ Limpiar</button>
 </div>
 
@@ -559,7 +567,7 @@ const STATUS_MAP = {
 // ESTADO
 // ═══════════════════════════════════════════════
 let db = null, allData = {}, knownSheets = [], newSheets = new Set();
-let curSheet = '', curCol = -1, curVal = '', sortSt = {col:-1,asc:true};
+let curSheet = '', curCol = -1, curVal = '', curEstado = '', sortSt = {col:-1,asc:true};
 let syncing = false, syncTimer = null, toastTmr = null;
 let APP_VERSION = '0.09.27.75';
 
@@ -859,14 +867,17 @@ function buildSheetSelector(){
 
 function onHoja(){
   curSheet = document.getElementById('sel-hoja').value;
-  curCol=-1; curVal=''; sortSt={col:-1,asc:true};
+  curCol=-1; curVal=''; curEstado=''; sortSt={col:-1,asc:true};
   const sc=document.getElementById('sel-col');
   const sv=document.getElementById('sel-val');
+  const se=document.getElementById('sel-estado');
+  const ce=document.getElementById('ctrl-estado');
   sc.disabled=true; sv.disabled=true;
   sc.innerHTML='<option value="">— Elige columna —</option>';
   sv.innerHTML='<option value="">— Elige columna —</option>';
+  se.value='';
   document.getElementById('btn-rst').style.display='none';
-  if(!curSheet || !allData[curSheet]){ showWelcome(); return; }
+  if(!curSheet || !allData[curSheet]){ showWelcome(); ce.style.display='none'; return; }
   const h = allData[curSheet].h;
   h.forEach((hdr,i)=>{
     const o=document.createElement('option');
@@ -874,8 +885,17 @@ function onHoja(){
     sc.appendChild(o);
   });
   sc.disabled=false;
+  ce.style.display = AVANCE_SHEETS[curSheet] ? '' : 'none';
   updateInfoBar();
-  renderTable(allData[curSheet].r, h);
+  renderTable(filtered());
+}
+
+function onEstado(){
+  curEstado = document.getElementById('sel-estado').value;
+  const rows = filtered();
+  renderTable(rows);
+  updateInfoBar();
+  updateStats(rows);
 }
 
 function onCol(){
@@ -904,9 +924,19 @@ function onVal(){
 
 function filtered(){
   if(!curSheet || !allData[curSheet]) return[];
-  const r = allData[curSheet].r;
-  if(curCol<0 || !curVal) return r;
-  return r.filter(row=>(row[curCol]??'')===curVal);
+  let r = allData[curSheet].r;
+  if(curCol>=0 && curVal) r = r.filter(row=>(row[curCol]??'')===curVal);
+  if(curEstado){
+    const cfg = AVANCE_SHEETS[curSheet];
+    if(cfg){
+      const h = allData[curSheet].h;
+      r = r.filter(row=>{
+        const done = avanceRowDone(cfg, h, row);
+        return curEstado==='done' ? done===true : done!==true;
+      });
+    }
+  }
+  return r;
 }
 
 function resetAll(){
@@ -918,7 +948,7 @@ function resetAll(){
   document.getElementById('btn-rst').style.display='none';
   document.getElementById('info-bar').classList.remove('show');
   document.getElementById('stats-row').classList.remove('show');
-  if(curSheet && allData[curSheet]) renderTable(allData[curSheet].r, allData[curSheet].h);
+  if(curSheet && allData[curSheet]) renderTable(filtered(), allData[curSheet].h);
 }
 
 function refreshValSel(){
@@ -1095,14 +1125,20 @@ function updateStats(rows){
   }).join('');
 
   // Fusiones realizadas: suma de la columna de fusiones solo en las filas
-  // marcadas como realizadas (estado verde en STATUS_MAP)
+  // marcadas como realizadas (estado verde en STATUS_MAP).
+  // GONVARRI queda excluido: su columna "PP. FUSIONADOS" hace match falso
+  // con isStatusCol (contiene "fusionado"), y además ahí "Total fusiones"
+  // ya es el dato final (sin estado verde/rojo que valga para esto).
+  const skipFusionStat = !!AVANCE_SHEETS[curSheet] && AVANCE_SHEETS[curSheet].kind.startsWith('gonvarri');
   let statusIdx=-1, fusionIdx=-1;
-  h.forEach((hd,i)=>{ if(isStatusCol(hd)) statusIdx=i; });
-  h.forEach((hd,i)=>{
-    if(i===statusIdx||i===curCol)return;
-    if(EXCLUDE_STAT_COLS.includes((hd||'').toLowerCase().trim()))return;
-    if((hd||'').toLowerCase().includes('fusion')) fusionIdx=i;
-  });
+  if(!skipFusionStat){
+    h.forEach((hd,i)=>{ if(isStatusCol(hd)) statusIdx=i; });
+    h.forEach((hd,i)=>{
+      if(i===statusIdx||i===curCol)return;
+      if(EXCLUDE_STAT_COLS.includes((hd||'').toLowerCase().trim()))return;
+      if((hd||'').toLowerCase().includes('fusion')) fusionIdx=i;
+    });
+  }
   if(statusIdx>=0 && fusionIdx>=0){
     const realizadas = rows
       .filter(r=>STATUS_MAP[String(r[statusIdx]||'').toUpperCase().trim()]==='green')
