@@ -103,6 +103,33 @@ body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--
 .btn-rst{height:34px;padding:0 12px;border:1px solid var(--border-s);border-radius:var(--r);background:transparent;color:var(--t3);font-size:12px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
 .btn-rst:hover{background:var(--surface);color:var(--text)}
 
+/* ── VALOR: multi-selección con checkboxes ── */
+.msel{position:relative}
+.msel-btn{
+  height:34px;padding:0 28px 0 10px;border:1px solid var(--border-s);border-radius:var(--r);
+  background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color:var(--text);font-size:13px;min-width:140px;max-width:260px;width:100%;cursor:pointer;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit
+}
+.msel-btn:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(180,83,9,.18)}
+.msel-btn:disabled{opacity:.45;cursor:not-allowed}
+.msel-panel{
+  display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:220px;max-width:320px;
+  background:var(--card);border:1px solid var(--border-s);border-radius:var(--r);box-shadow:var(--shadow);
+  z-index:50;padding:8px
+}
+.msel-panel.show{display:block}
+.msel-actions{display:flex;gap:6px;margin-bottom:6px}
+.msel-actions button{flex:1;height:26px;border:1px solid var(--border-s);border-radius:var(--r);background:transparent;color:var(--t3);font-size:11px;cursor:pointer}
+.msel-actions button:hover{background:var(--surface);color:var(--text)}
+.msel-search{width:100%;height:28px;padding:0 8px;border:1px solid var(--border-s);border-radius:var(--r);background:var(--surface);color:var(--text);font-size:12px;margin-bottom:6px;box-sizing:border-box}
+.msel-search:focus{outline:none;border-color:var(--blue)}
+.msel-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.msel-item{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:var(--r);font-size:13px;color:var(--text);cursor:pointer}
+.msel-item:hover{background:var(--surface)}
+.msel-item input{margin:0;cursor:pointer}
+.msel-empty{font-size:12px;color:var(--t3);padding:6px 4px;text-align:center}
+
 /* ── INFO BAR ── */
 .info-bar{background:var(--blue-lt);border-left:3px solid var(--blue);padding:7px 14px;font-size:12px;color:var(--blue);display:none;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 .info-bar.show{display:flex}
@@ -406,9 +433,17 @@ tr:last-child td{border-bottom:none}
   </div>
   <div class="ctrl">
     <label>Valor</label>
-    <select id="sel-val" onchange="onVal()" disabled>
-      <option value="">— Elige columna —</option>
-    </select>
+    <div class="msel" id="msel-val">
+      <button type="button" class="msel-btn" id="msel-val-btn" disabled onclick="toggleValPanel(event)">— Elige columna —</button>
+      <div class="msel-panel" id="msel-val-panel">
+        <div class="msel-actions">
+          <button type="button" onclick="valSelectAll()">Todos</button>
+          <button type="button" onclick="valSelectNone()">Ninguno</button>
+        </div>
+        <input type="text" class="msel-search" id="msel-val-search" placeholder="Buscar…" oninput="filterValPanel()">
+        <div class="msel-list" id="msel-val-list"></div>
+      </div>
+    </div>
   </div>
   <div class="ctrl" id="ctrl-estado" style="display:none">
     <label>Estado</label>
@@ -567,7 +602,7 @@ const STATUS_MAP = {
 // ESTADO
 // ═══════════════════════════════════════════════
 let db = null, allData = {}, knownSheets = [], newSheets = new Set();
-let curSheet = '', curCol = -1, curVal = '', curEstado = '', sortSt = {col:-1,asc:true};
+let curSheet = '', curCol = -1, curVals = [], curEstado = '', sortSt = {col:-1,asc:true};
 let syncing = false, syncTimer = null, toastTmr = null;
 let APP_VERSION = '0.09.27.75';
 
@@ -867,14 +902,16 @@ function buildSheetSelector(){
 
 function onHoja(){
   curSheet = document.getElementById('sel-hoja').value;
-  curCol=-1; curVal=''; curEstado=''; sortSt={col:-1,asc:true};
+  curCol=-1; curVals=[]; curEstado=''; sortSt={col:-1,asc:true};
   const sc=document.getElementById('sel-col');
-  const sv=document.getElementById('sel-val');
   const se=document.getElementById('sel-estado');
   const ce=document.getElementById('ctrl-estado');
-  sc.disabled=true; sv.disabled=true;
+  sc.disabled=true;
   sc.innerHTML='<option value="">— Elige columna —</option>';
-  sv.innerHTML='<option value="">— Elige columna —</option>';
+  closeValPanel();
+  renderValPanel([]);
+  const vb=document.getElementById('msel-val-btn');
+  vb.disabled=true; vb.textContent='— Elige columna —';
   se.value='';
   document.getElementById('btn-rst').style.display='none';
   if(!curSheet || !allData[curSheet]){ showWelcome(); ce.style.display='none'; return; }
@@ -901,21 +938,86 @@ function onEstado(){
 function onCol(){
   curCol = parseInt(document.getElementById('sel-col').value);
   if(isNaN(curCol)) return;
-  curVal='';
-  const sv = document.getElementById('sel-val');
-  sv.innerHTML='<option value="">— Selecciona valor —</option>';
+  curVals=[];
   const rows = allData[curSheet]?.r||[];
-  [...new Set(rows.map(r=>r[curCol]??'').filter(v=>v!==''))].sort().forEach(v=>{
-    const o=document.createElement('option'); o.value=v; o.textContent=v; sv.appendChild(o);
-  });
-  sv.disabled=false;
+  const vals = [...new Set(rows.map(r=>r[curCol]??'').filter(v=>v!==''))].sort();
+  renderValPanel(vals);
+  const vb=document.getElementById('msel-val-btn');
+  vb.disabled=false;
+  updateValBtnLabel();
+  document.getElementById('btn-rst').style.display='none';
   updateInfoBar();
   renderTable(filtered());
 }
 
-function onVal(){
-  curVal = document.getElementById('sel-val').value;
-  document.getElementById('btn-rst').style.display = curVal ? '' : 'none';
+// ── Valor: dropdown con checkboxes (selección múltiple) ──
+function renderValPanel(vals){
+  const list=document.getElementById('msel-val-list');
+  if(!vals.length){ list.innerHTML='<div class="msel-empty">Sin valores</div>'; return; }
+  list.innerHTML = vals.map(v=>{
+    const checked = curVals.includes(v) ? 'checked' : '';
+    return `<label class="msel-item"><input type="checkbox" value="${esc(v)}" ${checked} onchange="onValToggle(this)"><span>${esc(v)}</span></label>`;
+  }).join('');
+  const search=document.getElementById('msel-val-search');
+  search.value='';
+}
+
+function onValToggle(cb){
+  const v = cb.value;
+  if(cb.checked){ if(!curVals.includes(v)) curVals.push(v); }
+  else curVals = curVals.filter(x=>x!==v);
+  afterValChange();
+}
+
+function valSelectAll(){
+  document.querySelectorAll('#msel-val-list .msel-item').forEach(item=>{
+    if(item.style.display==='none') return;
+    const cb=item.querySelector('input');
+    cb.checked=true;
+    if(!curVals.includes(cb.value)) curVals.push(cb.value);
+  });
+  afterValChange();
+}
+
+function valSelectNone(){
+  document.querySelectorAll('#msel-val-list .msel-item').forEach(item=>{
+    if(item.style.display==='none') return;
+    const cb=item.querySelector('input');
+    cb.checked=false;
+    curVals = curVals.filter(x=>x!==cb.value);
+  });
+  afterValChange();
+}
+
+function filterValPanel(){
+  const q=document.getElementById('msel-val-search').value.toLowerCase().trim();
+  document.querySelectorAll('#msel-val-list .msel-item').forEach(item=>{
+    item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function updateValBtnLabel(){
+  const btn=document.getElementById('msel-val-btn');
+  if(curCol<0){ btn.textContent='— Elige columna —'; return; }
+  if(!curVals.length){ btn.textContent='— Selecciona valor —'; return; }
+  btn.textContent = curVals.length===1 ? curVals[0] : `${curVals.length} seleccionados`;
+}
+
+function toggleValPanel(){
+  const btn=document.getElementById('msel-val-btn');
+  if(btn.disabled) return;
+  const panel=document.getElementById('msel-val-panel');
+  const willShow = !panel.classList.contains('show');
+  closeAllMselPanels();
+  if(willShow) panel.classList.add('show');
+}
+function closeValPanel(){ document.getElementById('msel-val-panel').classList.remove('show'); }
+function closeAllMselPanels(){ document.querySelectorAll('.msel-panel.show').forEach(p=>p.classList.remove('show')); }
+document.addEventListener('click', e=>{ if(!e.target.closest('.msel')) closeAllMselPanels(); });
+
+function afterValChange(){
+  document.getElementById('btn-rst').style.display = curVals.length ? '' : 'none';
+  updateValBtnLabel();
   const rows = filtered();
   renderTable(rows);
   updateInfoBar();
@@ -925,7 +1027,10 @@ function onVal(){
 function filtered(){
   if(!curSheet || !allData[curSheet]) return[];
   let r = allData[curSheet].r;
-  if(curCol>=0 && curVal) r = r.filter(row=>(row[curCol]??'')===curVal);
+  if(curCol>=0 && curVals.length){
+    const set=new Set(curVals);
+    r = r.filter(row=>set.has(String(row[curCol]??'')));
+  }
   if(curEstado){
     const cfg = AVANCE_SHEETS[curSheet];
     if(cfg){
@@ -940,11 +1045,12 @@ function filtered(){
 }
 
 function resetAll(){
-  curCol=-1; curVal=''; sortSt={col:-1,asc:true};
+  curCol=-1; curVals=[]; sortSt={col:-1,asc:true};
   document.getElementById('sel-col').value='';
-  const sv=document.getElementById('sel-val');
-  sv.innerHTML='<option value="">— Elige columna —</option>';
-  sv.disabled=true;
+  closeValPanel();
+  renderValPanel([]);
+  const vb=document.getElementById('msel-val-btn');
+  vb.disabled=true; vb.textContent='— Elige columna —';
   document.getElementById('btn-rst').style.display='none';
   document.getElementById('info-bar').classList.remove('show');
   document.getElementById('stats-row').classList.remove('show');
@@ -953,12 +1059,11 @@ function resetAll(){
 
 function refreshValSel(){
   if(curCol<0) return;
-  const sv=document.getElementById('sel-val');
-  const prev=sv.value;
   const vals=[...new Set((allData[curSheet]?.r||[]).map(r=>r[curCol]??'').filter(v=>v!==''))].sort();
-  sv.innerHTML='<option value="">— Selecciona valor —</option>';
-  vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sv.appendChild(o);});
-  if(prev) sv.value=prev;
+  curVals = curVals.filter(v=>vals.includes(v));
+  renderValPanel(vals);
+  updateValBtnLabel();
+  document.getElementById('btn-rst').style.display = curVals.length ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════
@@ -982,8 +1087,9 @@ function renderTable(rows, headers){
   const h = headers || (curSheet ? allData[curSheet]?.h : []) || [];
   if(!curSheet || !h.length){ showWelcome(); return; }
 
-  if(!rows.length && curVal){
-    wrap.innerHTML=`<div class="state"><div class="ico">🔍</div><h3>Sin resultados</h3><p>No hay registros con <strong>${esc(h[curCol]||'')}</strong> = <strong>${esc(curVal)}</strong></p></div>`;
+  if(!rows.length && curVals.length){
+    const lbl = curVals.length===1 ? curVals[0] : `${curVals.length} valores`;
+    wrap.innerHTML=`<div class="state"><div class="ico">🔍</div><h3>Sin resultados</h3><p>No hay registros con <strong>${esc(h[curCol]||'')}</strong> = <strong>${esc(lbl)}</strong></p></div>`;
     setCount(0); return;
   }
 
@@ -1001,7 +1107,7 @@ function renderTable(rows, headers){
   h.forEach((col,i)=>{
     const s=sortSt.col===i;
     const arr=s?(sortSt.asc?'▲':'▼'):'⇅';
-    const hl=(i===curCol&&curVal)?' chs':'';
+    const hl=(i===curCol&&curVals.length)?' chs':'';
     html+=`<th class="${s?'sorted':''}${hl}" onclick="sortBy(${i})">${esc(col||'')}<span class="si">${arr}</span></th>`;
   });
   html+=`</tr></thead><tbody>`;
@@ -1009,7 +1115,7 @@ function renderTable(rows, headers){
     html+='<tr>';
     h.forEach((hdr,i)=>{
       const v=row[i]??'';
-      const isH=(i===curCol&&curVal&&v===curVal);
+      const isH=(i===curCol&&curVals.length&&curVals.includes(String(v)));
       const isSt=isStatusCol(hdr);
       const content = v!==''
         ? (isSt ? statusPill(v) : esc(String(v)))
@@ -1096,7 +1202,7 @@ function updateInfoBar(){
   if(!curSheet){bar.classList.remove('show');return;}
   const h=allData[curSheet]?.h||[];
   let html=`<span class="itag">${esc(curSheet)}</span>`;
-  if(curCol>=0&&h[curCol]) html+=` Filtrado por <strong>${esc(h[curCol])}</strong>`+(curVal?` → <strong>${esc(curVal)}</strong>`:'');
+  if(curCol>=0&&h[curCol]) html+=` Filtrado por <strong>${esc(h[curCol])}</strong>`+(curVals.length?` → <strong>${esc(curVals.length===1?curVals[0]:curVals.length+' valores')}</strong>`:'');
   bar.innerHTML=html; bar.classList.add('show');
 }
 
@@ -1105,7 +1211,7 @@ const EXCLUDE_STAT_COLS = ['anillo','fecha'];
 
 function updateStats(rows){
   const sr=document.getElementById('stats-row');
-  if(!curVal||curCol<0||!rows.length){sr.classList.remove('show');return;}
+  if(!curVals.length||curCol<0||!rows.length){sr.classList.remove('show');return;}
   const h=allData[curSheet]?.h||[];
 
   // Columnas numéricas
