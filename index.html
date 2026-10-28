@@ -421,17 +421,24 @@ tr:last-child td{border-bottom:none}
 <div class="ctrl-bar">
   <div class="ctrl">
     <label>Hoja</label>
-    <select id="sel-hoja" onchange="onHoja()">
-      <option value="">— Cargando… —</option>
-    </select>
+    <div class="msel" id="msel-hoja">
+      <button type="button" class="msel-btn" id="msel-hoja-btn" onclick="toggleHojaPanel()">— Cargando… —</button>
+      <div class="msel-panel" id="msel-hoja-panel">
+        <div class="msel-actions">
+          <button type="button" onclick="hojaSelectAll()">Todos</button>
+          <button type="button" onclick="hojaSelectNone()">Ninguno</button>
+        </div>
+        <div class="msel-list" id="msel-hoja-list"></div>
+      </div>
+    </div>
   </div>
-  <div class="ctrl">
+  <div class="ctrl" id="ctrl-col">
     <label>Filtrar por</label>
     <select id="sel-col" onchange="onCol()" disabled>
       <option value="">— Elige hoja —</option>
     </select>
   </div>
-  <div class="ctrl">
+  <div class="ctrl" id="ctrl-val">
     <label>Valor</label>
     <div class="msel" id="msel-val">
       <button type="button" class="msel-btn" id="msel-val-btn" disabled onclick="toggleValPanel(event)">— Elige columna —</button>
@@ -602,7 +609,7 @@ const STATUS_MAP = {
 // ESTADO
 // ═══════════════════════════════════════════════
 let db = null, allData = {}, knownSheets = [], newSheets = new Set();
-let curSheet = '', curCol = -1, curVals = [], curEstado = '', sortSt = {col:-1,asc:true};
+let curSheet = '', selSheets = [], curCol = -1, curVals = [], curEstado = '', sortSt = {col:-1,asc:true};
 let syncing = false, syncTimer = null, toastTmr = null;
 let APP_VERSION = '0.09.27.75';
 
@@ -828,8 +835,8 @@ async function syncNow(manual=false){
 
     buildSheetSelector();
     setFoot(ts,false);
-    if(curSheet && !allData[curSheet]) resetAll();
-    else if(curSheet){ renderTable(filtered()); refreshValSel(); }
+    if(selSheets.length === 1){ renderTable(filtered()); refreshValSel(); }
+    else if(selSheets.length > 1){ renderStackedTables(selSheets.filter(n=>allData[n])); }
 
     const nn = newSheets.size;
     if(errs.length && Object.keys(nd).length){
@@ -877,36 +884,80 @@ async function loadCache(){
 // ═══════════════════════════════════════════════
 // SELECTORES
 // ═══════════════════════════════════════════════
-function buildSheetSelector(){
-  const sel  = document.getElementById('sel-hoja');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">— Selecciona hoja —</option>';
-  const sheets = Object.keys(allData).sort((a,b)=>a.localeCompare(b,'es'));
-  sheets.forEach(n=>{
-    const o = document.createElement('option');
-    o.value = n;
-    o.textContent = n + (newSheets.has(n)?' 🆕':'');
-    sel.appendChild(o);
-  });
+// ── Hoja: dropdown con checkboxes (selección múltiple) ──
+let allSheetNames = [], hojaInitialized = false;
 
-  if(prev && allData[prev]){
-    sel.value = prev;
-  } else if(sheets.length === 1){
-    // Auto-seleccionar si hay una sola hoja
-    sel.value = sheets[0];
-    onHoja();
-  } else {
-    showWelcome();
+function buildSheetSelector(){
+  allSheetNames = Object.keys(allData).sort((a,b)=>a.localeCompare(b,'es'));
+  const wasInit = hojaInitialized;
+  const before = selSheets.slice().sort().join('\u0001');
+  selSheets = selSheets.filter(n=>allData[n]);
+  if(!wasInit && !selSheets.length && allSheetNames.length === 1){
+    // Auto-seleccionar si hay una sola hoja (solo la primera vez)
+    selSheets = [allSheetNames[0]];
   }
+  hojaInitialized = true;
+  renderHojaPanel();
+  updateHojaBtnLabel();
+  const after = selSheets.slice().sort().join('\u0001');
+  if(!wasInit || after !== before) applyHojaChange();
 }
 
-function onHoja(){
-  curSheet = document.getElementById('sel-hoja').value;
+function renderHojaPanel(){
+  const list=document.getElementById('msel-hoja-list');
+  if(!allSheetNames.length){ list.innerHTML='<div class="msel-empty">Sin hojas</div>'; return; }
+  list.innerHTML = allSheetNames.map(n=>{
+    const checked = selSheets.includes(n) ? 'checked' : '';
+    const badge = newSheets.has(n) ? ' 🆕' : '';
+    return `<label class="msel-item"><input type="checkbox" value="${esc(n)}" ${checked} onchange="onHojaToggle(this)"><span>${esc(n)}${badge}</span></label>`;
+  }).join('');
+}
+
+function updateHojaBtnLabel(){
+  const btn=document.getElementById('msel-hoja-btn');
+  if(!selSheets.length){ btn.textContent='— Selecciona hoja —'; return; }
+  btn.textContent = selSheets.length===1 ? selSheets[0] : `${selSheets.length} hojas seleccionadas`;
+}
+
+function onHojaToggle(cb){
+  const v = cb.value;
+  if(cb.checked){ if(!selSheets.includes(v)) selSheets.push(v); }
+  else selSheets = selSheets.filter(x=>x!==v);
+  updateHojaBtnLabel();
+  applyHojaChange();
+}
+
+function hojaSelectAll(){
+  selSheets = [...allSheetNames];
+  renderHojaPanel();
+  updateHojaBtnLabel();
+  applyHojaChange();
+}
+
+function hojaSelectNone(){
+  selSheets = [];
+  renderHojaPanel();
+  updateHojaBtnLabel();
+  applyHojaChange();
+}
+
+function toggleHojaPanel(){
+  const panel=document.getElementById('msel-hoja-panel');
+  const willShow = !panel.classList.contains('show');
+  closeAllMselPanels();
+  if(willShow) panel.classList.add('show');
+}
+
+// Aplica la selección de hoja(s) actual: 1 hoja → tabla + filtros de
+// siempre; 0 o varias → oculta Filtrar por/Valor/Estado y muestra las
+// tablas completas apiladas (o la bienvenida si no hay ninguna marcada).
+function applyHojaChange(){
   curCol=-1; curVals=[]; curEstado=''; sortSt={col:-1,asc:true};
   const sc=document.getElementById('sel-col');
   const se=document.getElementById('sel-estado');
   const ce=document.getElementById('ctrl-estado');
-  sc.disabled=true;
+  const ccol=document.getElementById('ctrl-col');
+  const cval=document.getElementById('ctrl-val');
   sc.innerHTML='<option value="">— Elige columna —</option>';
   closeValPanel();
   renderValPanel([]);
@@ -914,17 +965,61 @@ function onHoja(){
   vb.disabled=true; vb.textContent='— Elige columna —';
   se.value='';
   document.getElementById('btn-rst').style.display='none';
-  if(!curSheet || !allData[curSheet]){ showWelcome(); ce.style.display='none'; return; }
-  const h = allData[curSheet].h;
-  h.forEach((hdr,i)=>{
-    const o=document.createElement('option');
-    o.value=i; o.textContent=hdr||`Col ${i+1}`;
-    sc.appendChild(o);
+
+  if(selSheets.length === 1){
+    curSheet = selSheets[0];
+    ccol.style.display=''; cval.style.display='';
+    sc.disabled=false;
+    const h = allData[curSheet].h;
+    h.forEach((hdr,i)=>{
+      const o=document.createElement('option');
+      o.value=i; o.textContent=hdr||`Col ${i+1}`;
+      sc.appendChild(o);
+    });
+    ce.style.display = AVANCE_SHEETS[curSheet] ? '' : 'none';
+    updateInfoBar();
+    renderTable(filtered());
+  } else {
+    curSheet = '';
+    sc.disabled = true;
+    ccol.style.display='none'; cval.style.display='none'; ce.style.display='none';
+    document.getElementById('info-bar').classList.remove('show');
+    document.getElementById('stats-row').classList.remove('show');
+    if(!selSheets.length) showWelcome();
+    else renderStackedTables(selSheets.filter(n=>allData[n]));
+  }
+}
+
+// Vista de varias hojas a la vez: cada una con su tabla completa (sin
+// filtros, que no tendrían sentido entre hojas con columnas distintas).
+function renderStackedTables(sheets){
+  const wrap = document.getElementById('rwrap');
+  if(!sheets.length){ showWelcome(); return; }
+  let total=0;
+  let html = '<div class="twrap">';
+  sheets.forEach(name=>{
+    const d = allData[name];
+    const h = d.h, rows = d.r;
+    total += rows.length;
+    html += `<div class="rhead"><span class="rtitle">${esc(name)}</span><div class="rhead-right"><span class="rcount">${rows.length} registros</span></div></div>`;
+    html += '<table style="margin-bottom:24px"><thead><tr>';
+    h.forEach(col=>{ html += `<th>${esc(col||'')}</th>`; });
+    html += '</tr></thead><tbody>';
+    rows.forEach(row=>{
+      html += '<tr>';
+      h.forEach((hdr,i)=>{
+        const v = row[i] ?? '';
+        const isSt = isStatusCol(hdr);
+        const content = v!=='' ? (isSt ? statusPill(v) : esc(String(v))) : '<span class="ec">—</span>';
+        html += `<td>${content}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
   });
-  sc.disabled=false;
-  ce.style.display = AVANCE_SHEETS[curSheet] ? '' : 'none';
-  updateInfoBar();
-  renderTable(filtered());
+  html += '</div>';
+  wrap.innerHTML = html;
+  setCount(total);
 }
 
 function onEstado(){
@@ -2132,6 +2227,29 @@ function pdfSafe(v){
 }
 
 async function printMain(){
+  if(selSheets.length > 1){
+    const sheets = selSheets.filter(n=>allData[n]);
+    if(!sheets.length){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
+    const doc = pdfDoc(); if(!doc) return;
+    const marginL = 30; let y = 40;
+    sheets.forEach(name=>{
+      const d = allData[name];
+      if(y > 700){ doc.addPage(); y = 40; }
+      doc.setFontSize(12);
+      doc.text(pdfSafe(`${name} (${d.r.length} registros)`), marginL, y); y += 4;
+      doc.autoTable({
+        startY: y,
+        head: [d.h.map(pdfSafe)],
+        body: d.r.map(row => d.h.map((_,i)=>pdfSafe(row[i]))),
+        styles: {fontSize:8, cellPadding:3},
+        headStyles: {fillColor:[180,83,9]},
+        margin: {left:marginL,right:marginL},
+      });
+      y = doc.lastAutoTable.finalY + 24;
+    });
+    await sharePdf(doc, `villena_psfv_${new Date().toISOString().slice(0,10)}.pdf`, 'VILLENA PSFV');
+    return;
+  }
   if(!curSheet || !allData[curSheet]){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
   const doc = pdfDoc(); if(!doc) return;
   const headers = allData[curSheet].h;
@@ -2262,6 +2380,15 @@ function downloadExcel(){
 // Excel de la tabla principal: exporta exactamente lo que está desplegado
 // (la hoja actual, con el filtro y el orden aplicados en pantalla)
 function downloadExcelMain(){
+  if(selSheets.length > 1){
+    const sheets = selSheets.filter(n=>allData[n]).map(name=>{
+      const {h, r} = allData[name];
+      return {sheet:name, aoa:[h.map(x=>x||''), ...r.map(row=>h.map((_,i)=>row[i]??''))]};
+    });
+    if(!sheets.length){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
+    downloadExcelSheets(sheets, 'villena_psfv');
+    return;
+  }
   if(!curSheet || !allData[curSheet]){ toast('⚠️ Elige una hoja para exportar','warn'); return; }
   const headers = allData[curSheet].h;
   const rows = filtered();
